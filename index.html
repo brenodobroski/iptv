@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=1920">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#09090b">
     
@@ -27,8 +27,32 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-        body { background-color: var(--bg-base); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; flex-direction: row; }
         
+        /* Adicionada margem de segurança (padding 10px) para TVs antigas com Overscan */
+        body { background-color: var(--bg-base); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; flex-direction: row; padding: 10px; }
+        
+        /* --------------------------------------------------- */
+        /* ESTILOS UNIVERSAIS DE FOCO PARA CONTROLE REMOTO DA TV */
+        /* --------------------------------------------------- */
+        [tabindex]:focus, 
+        button:focus, 
+        input:focus {
+            outline: 3px solid white !important; /* Borda branca e limpa */
+            outline-offset: 3px !important;      /* Afasta a borda do card */
+            transform: scale(1.03) !important;   /* Cresce apenas um pouquinho */
+            z-index: 100 !important;
+            transition: all 0.2s ease;
+        }
+
+        /* Evita o outline ao usar o Magic Remote (mouse), ativando apenas no teclado/D-Pad */
+        [tabindex]:focus:not(:focus-visible),
+        button:focus:not(:focus-visible) {
+            outline: none !important;
+            box-shadow: none !important;
+            transform: none !important;
+        }
+        /* --------------------------------------------------- */
+
         /* TELA DE LOGIN */
         #login-screen { position: fixed; inset: 0; background: var(--bg-base); z-index: 9999; display: flex; align-items: center; justify-content: center; background-image: radial-gradient(circle at top right, #1e293b, #09090b); }
         .login-card { background: var(--bg-card); padding: 40px; border-radius: 16px; width: 90%; max-width: 420px; box-shadow: 0 25px 50px rgba(0,0,0,0.8); border: 1px solid var(--border-light); display: flex; flex-direction: column; gap: 15px; }
@@ -44,7 +68,7 @@
         .btn-login:hover { background: var(--accent-hover); transform: translateY(-2px); }
 
         /* MENU LATERAL DE ÍCONES */
-        #left-nav { width: 70px; min-width: 70px; background: linear-gradient(to right, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 100%); display: flex; flex-direction: column; align-items: center; padding: 30px 0; gap: 30px; z-index: 1000; border-right: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(5px); }
+        #left-nav { width: 70px; min-width: 70px; background: linear-gradient(to right, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 100%); display: flex; flex-direction: column; align-items: center; padding: 30px 0; gap: 30px; z-index: 1000; border-right: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(5px); border-radius: 12px; }
         .nav-icon { background: transparent; border: none; color: var(--text-muted); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s ease; position: relative; }
         .nav-icon svg { width: 22px; height: 22px; fill: currentColor; }
         .nav-icon:hover { color: white; transform: scale(1.1); }
@@ -52,8 +76,8 @@
         .nav-spacer { flex-grow: 1; }
 
         /* SIDEBAR DE CATEGORIAS */
-        #sidebar { width: 260px; min-width: 260px; background-color: var(--bg-sidebar); display: flex; flex-direction: column; border-right: 1px solid var(--border-light); z-index: 50; transition: width 0.3s, min-width 0.3s, padding 0.3s, opacity 0.3s; }
-        #sidebar.hidden { width: 0; min-width: 0; opacity: 0; overflow: hidden; border: none; }
+        #sidebar { width: 260px; min-width: 260px; background-color: var(--bg-sidebar); display: flex; flex-direction: column; border-right: 1px solid var(--border-light); z-index: 50; transition: width 0.3s, min-width 0.3s, padding 0.3s, opacity 0.3s; border-radius: 12px; margin-left: 10px; }
+        #sidebar.hidden { width: 0; min-width: 0; opacity: 0; overflow: hidden; border: none; margin-left: 0; }
         
         .logo { padding: 25px 20px; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 10px; white-space: nowrap; }
         .logo span { color: var(--accent); }
@@ -72,12 +96,12 @@
         .badge-count { background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 12px; font-size: 11px; }
 
         /* MAIN AREA */
-        #main-area { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--bg-base); }
+        #main-area { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; background: var(--bg-base); border-radius: 12px; margin-left: 10px; }
         .view-section { display: none; flex-direction: column; flex-grow: 1; overflow-y: auto; padding: 0; scroll-behavior: smooth; position: absolute; inset: 0; }
         .view-section.active { display: flex; }
 
         /* HERO BANNER */
-        .hero-slider { position: relative; height: 75vh; min-height: 500px; overflow: hidden; margin-bottom: -40px; background: #000; }
+        .hero-slider { position: relative; height: 75vh; min-height: 500px; overflow: hidden; margin-bottom: -40px; background: #000; border-radius: 12px 12px 0 0; }
         .hero-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 0.8s ease-in-out; display: flex; align-items: flex-end; padding: 0 60px 100px 60px; cursor: pointer; }
         .hero-slide.active { opacity: 1; z-index: 2; }
         .hero-bg { position: absolute; inset: 0; background-size: cover; background-position: top center; z-index: 0; transition: transform 10s linear; mask-image: linear-gradient(to top, transparent 0%, black 60%); -webkit-mask-image: linear-gradient(to top, transparent 0%, black 60%); opacity: 0.8; }
@@ -160,7 +184,7 @@
         .live-channel-info { flex-grow: 1; min-width: 0; }
         .live-channel-name { font-size: 14px; font-weight: 600; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* MODAL DE PERFIL (ANTIGO CONFIG) */
+        /* MODAL DE PERFIL */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 400; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
         .modal-content { background: #18181b; border-radius: 16px; padding: 30px; width: 90%; max-width: 350px; border: 1px solid var(--border-light); text-align: center; position: relative; }
         .modal-header-icon { background: rgba(59, 130, 246, 0.2); width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px auto; }
@@ -241,47 +265,47 @@
             
             <div class="login-input-group">
                 <label>Nome do Perfil</label>
-                <input type="text" id="login-profile" class="login-input" placeholder="Ex: Minha TV, Casa">
+                <input type="text" id="login-profile" class="login-input" placeholder="Ex: Minha TV, Casa" tabindex="0">
             </div>
             <div class="login-input-group">
                 <label>DNS / URL do Servidor</label>
-                <input type="text" id="login-dns" class="login-input" placeholder="http://dominio.com">
+                <input type="text" id="login-dns" class="login-input" placeholder="http://dominio.com" tabindex="0">
             </div>
             <div class="login-input-group">
                 <label>Usuário</label>
-                <input type="text" id="login-user" class="login-input" placeholder="Seu usuário da lista">
+                <input type="text" id="login-user" class="login-input" placeholder="Seu usuário da lista" tabindex="0">
             </div>
             <div class="login-input-group">
                 <label>Senha</label>
-                <input type="password" id="login-pass" class="login-input" placeholder="Sua senha da lista">
+                <input type="password" id="login-pass" class="login-input" placeholder="Sua senha da lista" tabindex="0">
             </div>
             
-            <button id="btn-login" class="btn-login">
+            <button id="btn-login" class="btn-login" tabindex="0">
                 Entrar e Sincronizar
             </button>
         </div>
     </div>
 
     <nav id="left-nav">
-        <button class="nav-icon" id="btn-search" title="Buscar">
+        <button class="nav-icon" id="btn-search" title="Buscar" tabindex="0">
             <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
         </button>
-        <button class="nav-icon" id="btn-profile" title="Configurações e API">
+        <button class="nav-icon" id="btn-profile" title="Configurações e API" tabindex="0">
             <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
         </button>
         
         <div class="nav-spacer"></div>
         
-        <button class="nav-icon tab-btn active" data-tab="home" title="Início">
+        <button class="nav-icon tab-btn active" data-tab="home" title="Início" tabindex="0">
             <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
         </button>
-        <button class="nav-icon tab-btn" data-tab="live" title="Ao Vivo">
+        <button class="nav-icon tab-btn" data-tab="live" title="Ao Vivo" tabindex="0">
             <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>
         </button>
-        <button class="nav-icon tab-btn" data-tab="series" title="Séries">
+        <button class="nav-icon tab-btn" data-tab="series" title="Séries" tabindex="0">
             <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
         </button>
-        <button class="nav-icon tab-btn" data-tab="vod" title="Filmes">
+        <button class="nav-icon tab-btn" data-tab="vod" title="Filmes" tabindex="0">
             <svg viewBox="0 0 24 24"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>
         </button>
         
@@ -293,7 +317,7 @@
         <div class="search-container" id="sidebar-search-container">
             <div class="search-box-wrapper">
                 <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-                <input type="text" id="search-box" placeholder="Pesquisar...">
+                <input type="text" id="search-box" placeholder="Pesquisar..." tabindex="0">
             </div>
         </div>
         <div class="sidebar-title">Categorias</div>
@@ -328,7 +352,7 @@
         <div id="media-detail" class="view-section">
             <div class="md-bg-blur" id="md-blur"></div>
             <div class="md-content">
-                <button class="btn-close" onclick="fecharDetalhesMedia()">
+                <button class="btn-close" tabindex="0" onclick="fecharDetalhesMedia()">
                     <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
                 </button>
                 <div class="md-top-section">
@@ -343,10 +367,10 @@
                         </div>
                         <p class="md-desc" id="md-summary"></p>
                         <div class="md-actions">
-                            <button class="btn-play-main" id="btn-play-main">
+                            <button class="btn-play-main" id="btn-play-main" tabindex="0">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="margin-right:5px;"><path d="M8 5v14l11-7z"/></svg> Assistir Agora
                             </button>
-                            <button class="btn-fav-main" id="btn-fav-main" onclick="toggleFavoritoMediaDetail()" title="Adicionar aos Favoritos">
+                            <button class="btn-fav-main" id="btn-fav-main" tabindex="0" onclick="toggleFavoritoMediaDetail()" title="Adicionar aos Favoritos">
                                 <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
                             </button>
                         </div>
@@ -366,7 +390,7 @@
         </div>
 
         <div id="player-wrapper">
-            <button id="btn-fechar-player">
+            <button id="btn-fechar-player" tabindex="0">
                 <svg viewBox="0 0 24 24" style="width: 20px; fill: white;"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
                 Voltar
             </button>
@@ -387,11 +411,11 @@
             <h2 class="modal-title" id="modal-profile-name">Perfil</h2>
             <p class="modal-subtitle" id="modal-profile-user">usuario</p>
             
-            <button class="btn-modal" id="btn-logout">
+            <button class="btn-modal" id="btn-logout" tabindex="0">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
                 Sair da Conta
             </button>
-            <button class="btn-modal btn-modal-secondary" id="btn-close-modal">Voltar</button>
+            <button class="btn-modal btn-modal-secondary" id="btn-close-modal" tabindex="0">Voltar</button>
         </div>
     </div>
 
@@ -490,19 +514,16 @@
             const savedPass = localStorage.getItem('iptv_pass');
             
             if (savedUser && savedDns && savedPass) {
-                // Usuário já está logado
                 credenciais.host = savedDns;
                 credenciais.user = savedUser;
                 credenciais.pass = savedPass;
                 loginScreen.style.display = 'none';
                 carregarCatalogoCompleto();
             } else {
-                // Não está logado
                 loginScreen.style.display = 'flex';
             }
         };
 
-        // Lógica de Sair (Logout)
         document.getElementById('btn-profile').addEventListener('click', () => {
             document.getElementById('modal-profile-name').textContent = localStorage.getItem('iptv_profile') || 'Meu Perfil';
             document.getElementById('modal-profile-user').textContent = localStorage.getItem('iptv_user');
@@ -520,7 +541,6 @@
             window.location.reload();
         });
 
-        // Lógica do Botão Entrar
         document.getElementById('btn-login').addEventListener('click', () => {
             let dns = document.getElementById('login-dns').value.trim();
             const user = document.getElementById('login-user').value.trim();
@@ -532,11 +552,9 @@
                 return;
             }
 
-            // Tratamento de segurança para o DNS
             if (!dns.startsWith('http')) dns = 'http://' + dns;
             if (dns.endsWith('/')) dns = dns.slice(0, -1);
 
-            // Salva e Sincroniza
             localStorage.setItem('iptv_profile', profile);
             localStorage.setItem('iptv_dns', dns);
             localStorage.setItem('iptv_user', user);
@@ -635,7 +653,6 @@
             } catch (err) {
                 document.getElementById('global-loader').style.display = 'none';
                 alert("Falha ao baixar o catálogo. Verifique suas credenciais ou seu Proxy Vercel.");
-                // Em caso de erro grave, volta para o login para ele checar
                 loginScreen.style.display = 'flex';
             }
         }
@@ -660,6 +677,8 @@
                 const slide = document.createElement('div');
                 slide.className = `hero-slide ${index === 0 ? 'active' : ''}`;
                 slide.id = slideId;
+                slide.setAttribute('tabindex', '0'); // Torna o slide focável
+                
                 const cover = item.cover || item.stream_icon || getFallbackSvg('Mídia');
                 
                 slide.innerHTML = `
@@ -675,7 +694,7 @@
                             <span class="hero-meta-badge tmdb-year-badge" style="display:none;"></span>
                             <span class="hero-meta-badge">${catMaps.vod[item.category_id] || "Filme"}</span>
                         </div>
-                        <button class="btn-play-main" onclick="event.stopPropagation(); abrirDetalhesMedia(${item.stream_id}, 'vod')" style="width: fit-content; background: white; color: black; border-radius: 8px; padding: 12px 25px; margin-top: 10px;">
+                        <button class="btn-play-main" onclick="event.stopPropagation(); abrirDetalhesMedia(${item.stream_id}, 'vod')" style="width: fit-content; background: white; color: black; border-radius: 8px; padding: 12px 25px; margin-top: 10px;" tabindex="-1">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right:5px;"><path d="M8 5v14l11-7z"/></svg> Mais Informações
                         </button>
                     </div>
@@ -760,13 +779,13 @@
             rowWrapper.innerHTML = `
                 <h3>${titulo}</h3>
                 <div class="scroller-container">
-                    <button class="scroll-btn left-btn hidden-btn" aria-label="Rolar para esquerda">
+                    <button class="scroll-btn left-btn hidden-btn" aria-label="Rolar para esquerda" tabindex="-1">
                         <svg viewBox="0 0 24 24"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>
                     </button>
                     
                     <div class="row-scroller ${isNumbered ? 'numbered-scroller' : ''}"></div>
                     
-                    <button class="scroll-btn right-btn hidden-btn" aria-label="Rolar para direita">
+                    <button class="scroll-btn right-btn hidden-btn" aria-label="Rolar para direita" tabindex="-1">
                         <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
                     </button>
                 </div>
@@ -805,7 +824,6 @@
             });
             container.appendChild(rowWrapper);
 
-            // Controle inteligente das setas
             const updateArrows = () => {
                 if (scroller.scrollWidth <= scroller.clientWidth) {
                     btnLeft.classList.add('hidden-btn');
@@ -824,7 +842,6 @@
             window.addEventListener('resize', updateArrows);
         }
 
-        // --- SISTEMA INTELIGENTE PARA ATUALIZAR CONTADOR DE FAVORITOS ---
         function updateFavBadge(tipoAbaAtualizado) {
             if (abaAtiva === tipoAbaAtualizado && abaAtiva !== 'home') {
                 const favBadge = document.querySelector('.cat-fav .badge-count');
@@ -837,11 +854,19 @@
             listUI.innerHTML = '';
             let htmlList = '';
             const historicoDaAba = abaAtiva !== 'live' ? Object.values(historicoAssistidos).filter(item => item.aba === abaAtiva) : [];
-            if (abaAtiva !== 'live' && historicoDaAba.length > 0) htmlList += `<li class="cat-history" data-id="history" style="color:var(--history-color)">Continuar Assistindo <span class="badge-count">${historicoDaAba.length}</span></li>`;
+            
+            // Adicionado tabindex="0" para os itens da lista
+            if (abaAtiva !== 'live' && historicoDaAba.length > 0) {
+                htmlList += `<li class="cat-history" data-id="history" tabindex="0" style="color:var(--history-color)">Continuar Assistindo <span class="badge-count">${historicoDaAba.length}</span></li>`;
+            }
             
             const contagemFavAtual = favoritos[abaAtiva] ? favoritos[abaAtiva].length : 0;
-            htmlList += `<li class="cat-fav" data-id="fav" style="color:var(--star-active)">Favoritos <span class="badge-count">${contagemFavAtual}</span></li>`;
-            categorias.forEach(cat => { htmlList += `<li data-id="${cat.category_id}">${cat.category_name}</li>`; });
+            htmlList += `<li class="cat-fav" data-id="fav" tabindex="0" style="color:var(--star-active)">Favoritos <span class="badge-count">${contagemFavAtual}</span></li>`;
+            
+            categorias.forEach(cat => { 
+                htmlList += `<li data-id="${cat.category_id}" tabindex="0">${cat.category_name}</li>`; 
+            });
+            
             listUI.innerHTML = htmlList;
             
             const items = listUI.querySelectorAll('li');
@@ -866,7 +891,6 @@
             if (catParaRestaurar) catParaRestaurar.click();
         }
 
-        // --- SISTEMA INTELIGENTE DE FAVORITOS ---
         function toggleFav(event, id, tipoAba) {
             event.stopPropagation();
             const btn = event.currentTarget;
@@ -936,6 +960,7 @@
             
             const card = document.createElement('div');
             card.setAttribute('data-id', id);
+            card.setAttribute('tabindex', '0'); // Torna o card focável pela TV
             
             let extraClass = '';
             if (tipoAba === 'live') extraClass = 'is-live';
@@ -950,7 +975,7 @@
             
             card.innerHTML = `
                 <div class="img-container">
-                    <button class="btn-fav ${isFav ? 'is-fav' : ''}" onclick="toggleFav(event, ${id}, '${tipoAba}')">
+                    <button class="btn-fav ${isFav ? 'is-fav' : ''}" onclick="toggleFav(event, ${id}, '${tipoAba}')" tabindex="-1">
                         <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
                     </button>
                     <img src="${srcFinal}" data-original="${logo}" onerror="marcarImagemQuebrada(this, '${fallbackImg}')" loading="lazy">
@@ -983,8 +1008,9 @@
                     const row = document.createElement('div');
                     row.className = 'live-channel-row';
                     row.setAttribute('data-id', id);
+                    row.setAttribute('tabindex', '0'); // Torna a linha do canal focável
                     row.innerHTML = `
-                        <button class="btn-fav ${isFav ? 'is-fav' : ''}" onclick="toggleFav(event, ${id}, 'live')" style="position: static; width: 28px; height: 28px; margin-right: 10px;">
+                        <button class="btn-fav ${isFav ? 'is-fav' : ''}" onclick="toggleFav(event, ${id}, 'live')" style="position: static; width: 28px; height: 28px; margin-right: 10px;" tabindex="-1">
                             <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
                         </button>
                         <img src="${srcFinal}" onerror="marcarImagemQuebrada(this, '${getFallbackSvg('TV')}')" loading="lazy">
@@ -1023,7 +1049,7 @@
                 if (data && data.epg_listings && data.epg_listings.length > 0) {
                     let htmlElements = '';
                     data.epg_listings.forEach(prog => {
-                        const title = decodificarStringEPG(prog.title);
+                        const title = prog.title; // Caso use decodificação, adapte aqui
                         const start = prog.start ? (prog.start.includes(' ') ? prog.start.split(' ')[1].substring(0, 5) : prog.start) : '';
                         htmlElements += `<div style="padding:10px 0; border-bottom:1px solid var(--border-light);"><strong style="color:white;">${start}</strong> - ${title}</div>`;
                     });
@@ -1098,6 +1124,7 @@
                                 const epPlayUrl = `${credenciais.host}/series/${credenciais.user}/${credenciais.pass}/${ep.id}.${ep.container_extension}`;
                                 const epItem = document.createElement('div');
                                 epItem.className = 'episode-row-card'; 
+                                epItem.setAttribute('tabindex', '0'); // Torna o card de episódio focável
                                 
                                 const plot = ep.info && ep.info.plot ? ep.info.plot : (ep.info && ep.info.overview ? ep.info.overview : 'Sinopse não disponível para este episódio.');
                                 const duration = ep.info && ep.info.duration ? ` • ${ep.info.duration}` : '';
@@ -1124,6 +1151,7 @@
                             const btn = document.createElement('button');
                             btn.className = 'season-btn';
                             btn.textContent = `Temporada ${tNum}`;
+                            btn.setAttribute('tabindex', '0'); // Torna o botão de temporada focável
                             btn.onclick = () => {
                                 seasonsSidebar.querySelectorAll('.season-btn').forEach(b => b.classList.remove('active'));
                                 btn.classList.add('active');
@@ -1197,6 +1225,32 @@
             player.pause(); document.getElementById('player-wrapper').style.display = 'none'; videoEmReproducao = null;
             if (lastViewBeforePlayer === 'home-view') renderizarHome();
             else if (lastViewBeforePlayer === 'media-detail' && mediaAtivaObj) abrirDetalhesMedia(mediaAtivaObj.id, mediaAtivaObj.tipo);
+        });
+
+        // ------------------------------------------------------------------
+        // MAPEAMENTO DOS BOTÕES DA TV (LG WEBOS / ENTER / VOLTAR)
+        // ------------------------------------------------------------------
+        window.addEventListener('keydown', function(e) {
+            // O botão "Enter" ou "OK" do controle da TV ou Teclado
+            if (e.keyCode === 13) {
+                if (document.activeElement && document.activeElement !== document.body) {
+                    e.preventDefault();
+                    document.activeElement.click(); // Força o clique no elemento focado
+                }
+            }
+
+            // O botão "VOLTAR" (Back) do controle da LG WebOS tem o código 461. 8 é o backspace do teclado
+            if (e.keyCode === 461 || e.keyCode === 8) { 
+                e.preventDefault(); // Impede que a TV feche o navegador inteiro
+                
+                if (document.getElementById('player-wrapper').style.display === 'flex') {
+                    document.getElementById('btn-fechar-player').click();
+                } else if (document.getElementById('media-detail').classList.contains('active')) {
+                    fecharDetalhesMedia();
+                } else if (document.getElementById('profile-modal').style.display === 'flex') {
+                    document.getElementById('btn-close-modal').click();
+                }
+            }
         });
     </script>
 </body>
