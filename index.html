@@ -491,11 +491,14 @@
         }
 
         async function fetchAPI(action, params = '') {
-            const url = `${credenciais.host}/player_api.php?username=${credenciais.user}&password=${credenciais.pass}&action=${action}${params}`;
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Erro na rede');
-            return await response.json();
-        }
+        // Agora você chama a sua própria Vercel, que redireciona para o IPTV
+        const targetUrl = `${credenciais.host}/player_api.php?username=${credenciais.user}&password=${credenciais.pass}&action=${action}${params}`;
+        
+        // Chamando o seu proxy que criaremos na Vercel
+        const response = await fetch(`/api/proxy?url=${encodeURIComponent(targetUrl)}`);
+        if (!response.ok) throw new Error('Erro na rede');
+        return await response.json();
+    }
 
         async function carregarCatalogoCompleto() {
             document.getElementById('global-loader').style.display = 'flex';
