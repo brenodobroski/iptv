@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 import httpx
 
 app = FastAPI()
@@ -13,9 +14,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/proxy")
+# Atualizamos a rota para refletir o caminho que o frontend vai chamar
+@app.get("/api/proxy")
 async def get_m3u(url: str):
     # httpx lida muito bem com requisições longas e arquivos grandes
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.get(url)
-        return response.text
+        
+        # Retorna o texto bruto já sinalizando para o navegador que é um JSON
+        return Response(content=response.text, media_type="application/json")

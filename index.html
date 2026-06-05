@@ -494,8 +494,9 @@
             // A URL completa que o servidor de IPTV espera
             const targetUrl = `${credenciais.host}/player_api.php?username=${credenciais.user}&password=${credenciais.pass}&action=${action}${params}`;
             
-            // Chamamos o nosso proxy (que agora é a função python na pasta /api/main.py)
-            const response = await fetch(`/api/main.py?url=${encodeURIComponent(targetUrl)}`);
+            // Mudamos a chamada de /api/main.py para /api/proxy
+            const response = await fetch(`/api/proxy?url=${encodeURIComponent(targetUrl)}`);
+            
             if (!response.ok) throw new Error('Erro na rede');
             return await response.json();
         }
