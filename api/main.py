@@ -17,7 +17,12 @@ app.add_middleware(
 
 # Apenas requisições para endpoints conhecidos da API Xtream são repassadas.
 # Isso evita que o proxy seja usado como "open proxy" para qualquer site.
-ALLOWED_PATH_PARTS = ("/player_api.php", "/live/", "/movie/", "/series/", "/xmltv.php")
+# "/hls/" foi adicionado porque, em transmissões ao vivo com HLS adaptativo, o
+# Xtream gera as variantes de qualidade e os segmentos dentro de um caminho
+# "/hls/<id>-<hash>/..." — diferente de "/live/", "/movie/", "/series/". Sem
+# isso, o próprio proxy bloqueava esses links com 403, mesmo já vindo
+# corretamente reescritos pela lógica de m3u8.
+ALLOWED_PATH_PARTS = ("/player_api.php", "/live/", "/movie/", "/series/", "/hls/", "/xmltv.php")
 
 # Client HTTP ÚNICO e reaproveitado entre requisições (pool de conexões).
 # Antes criávamos um `httpx.AsyncClient` novo a cada chamada — isso força um
@@ -41,7 +46,7 @@ def _e_arquivo_de_midia(path: str) -> bool:
     caminho = path.lower()
     if "player_api.php" in caminho or caminho.endswith(".m3u8") or caminho.endswith(".php"):
         return False
-    return any(p in caminho for p in ("/live/", "/movie/", "/series/"))
+    return any(p in caminho for p in ("/live/", "/movie/", "/series/", "/hls/"))
 
 
 @app.get("/api/proxy")
