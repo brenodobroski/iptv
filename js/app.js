@@ -36,6 +36,16 @@ window.marcarImagemQuebrada = function(imgElement, fallbackSvg) {
     imgElement.src = fallbackSvg;
 };
 
+// --- CACHE DO TMDB (evita refazer as mesmas 2 requisições toda vez que a Home/detalhes renderizam) ---
+const TMDB_CACHE_KEY = 'iptv_tmdb_cache_v1';
+const TMDB_CACHE_TTL = 1000 * 60 * 60 * 24 * 7; // 7 dias, dados do TMDB raramente mudam
+let tmdbCache = {};
+try { tmdbCache = JSON.parse(localStorage.getItem(TMDB_CACHE_KEY)) || {}; } catch (e) { tmdbCache = {}; }
+
+function salvarTmdbCache() {
+    try { localStorage.setItem(TMDB_CACHE_KEY, JSON.stringify(tmdbCache)); } catch (e) { /* storage cheio, ignora */ }
+}
+
 // --- TMDB API INTEGRAÇÃO ---
 async function buscarTMDB(nomeOriginal, tipo) {
     const apiKey = 'c5ec5dbd66ea50ce62b096dca322543c';
@@ -48,9 +58,16 @@ async function buscarTMDB(nomeOriginal, tipo) {
         .trim();
         
     if(!nomeLimpo) return null;
+
+    const cacheKey = `${endpoint}:${nomeLimpo.toLowerCase()}`;
+    const cached = tmdbCache[cacheKey];
+    if (cached && (Date.now() - cached.t) < TMDB_CACHE_TTL) {
+        return cached.v; // pode ser null (já sabemos que não achou) — evita bater na API de novo
+    }
         
     let searchUrl = `https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(nomeLimpo)}&language=pt-BR`;
     
+    let resultado = null;
     try {
         const res = await fetch(searchUrl);
         const data = await res.json();
@@ -66,7 +83,7 @@ async function buscarTMDB(nomeOriginal, tipo) {
                 logoUrl = `https://image.tmdb.org/t/p/w500${imgData.logos[0].file_path}`;
             }
             
-            return {
+            resultado = {
                 id: result.id,
                 titulo: result.title || result.name,
                 sinopse: result.overview,
@@ -77,8 +94,11 @@ async function buscarTMDB(nomeOriginal, tipo) {
                 ano: result.release_date ? result.release_date.substring(0, 4) : (result.first_air_date ? result.first_air_date.substring(0, 4) : '')
             };
         }
-    } catch (e) { console.error("Erro TMDB:", e); }
-    return null;
+    } catch (e) { console.error("Erro TMDB:", e); return null; /* erro de rede não vira cache */ }
+
+    tmdbCache[cacheKey] = { v: resultado, t: Date.now() };
+    salvarTmdbCache();
+    return resultado;
 }
 
 // LÓGICA DE API DO SEU SERVIDOR / VERCEL
@@ -98,28 +118,104 @@ async function fetchAPI(action, params = '') {
     return await response.json();
 }
 
+// --- CACHE DO CATÁLOGO (stale-while-revalidate) ---
+// Ideia: se já temos um catálogo salvo, mostramos ele NA HORA (0ms de espera) e
+// atualizamos os dados em segundo plano. Só mostramos o loader gigante quando
+// não existe nenhum cache ainda (primeiro login no aparelho).
+const CATALOG_CACHE_KEY = 'iptv_catalog_cache_v1';
+const CATALOG_CACHE_MAX_AGE = 1000 * 60 * 60 * 12; // depois de 12h o cache é descartado (não só atualizado)
+
+function lerCacheCatalogo() {
+    try {
+        const raw = localStorage.getItem(CATALOG_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.timestamp || !parsed.db || !parsed.cats) return null;
+        if (Date.now() - parsed.timestamp > CATALOG_CACHE_MAX_AGE) return null;
+        // O cache é por usuário/host, pra não misturar contas diferentes no mesmo navegador
+        if (parsed.host !== credenciais.host || parsed.user !== credenciais.user) return null;
+        return parsed;
+    } catch (e) { return null; }
+}
+
+function salvarCacheCatalogo() {
+    try {
+        localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify({
+            timestamp: Date.now(),
+            host: credenciais.host,
+            user: credenciais.user,
+            db, cats
+        }));
+    } catch (e) { /* catálogo muito grande pro localStorage, sem problema, só não cacheia */ }
+}
+
+function aplicarCatalogo(novoDb, novosCats) {
+    db.live = novoDb.live; db.vod = novoDb.vod; db.series = novoDb.series;
+    cats.live = novosCats.live; cats.vod = novosCats.vod; cats.series = novosCats.series;
+
+    catMaps.live = {}; catMaps.vod = {}; catMaps.series = {};
+    cats.live.forEach(c => catMaps.live[c.category_id] = c.category_name);
+    cats.vod.forEach(c => catMaps.vod[c.category_id] = c.category_name);
+    cats.series.forEach(c => catMaps.series[c.category_id] = c.category_name);
+
+    dataLoaded = true;
+}
+
+function renderizarViewAtual() {
+    if (abaAtiva === 'home') {
+        renderizarHome();
+    } else if (abaAtiva === 'live') {
+        renderizarCategoriasLiveSidebar();
+        renderizarGrade(db.live, 'live');
+    } else {
+        document.getElementById('category-bar').classList.remove('hidden');
+        renderizarCategoriasLista(cats[abaAtiva]);
+    }
+}
+
+async function baixarCatalogoDaRede() {
+    const [cLive, sLive, cVod, sVod, cSeries, sSeries] = await Promise.all([
+        fetchAPI('get_live_categories'), fetchAPI('get_live_streams'),
+        fetchAPI('get_vod_categories'), fetchAPI('get_vod_streams'),
+        fetchAPI('get_series_categories'), fetchAPI('get_series')
+    ]);
+    return {
+        db: { live: sLive, vod: sVod, series: sSeries },
+        cats: { live: cLive, vod: cVod, series: cSeries }
+    };
+}
+
 async function carregarCatalogoCompleto() {
+    const cache = lerCacheCatalogo();
+
+    if (cache) {
+        // 1) Mostra o cache imediatamente — usuário não espera nada
+        aplicarCatalogo(cache.db, cache.cats);
+        document.getElementById('global-loader').style.display = 'none';
+        switchView(abaAtiva === 'home' ? 'home-view' : 'grid-view');
+        renderizarViewAtual();
+
+        // 2) Atualiza em segundo plano, sem travar a tela
+        try {
+            const fresh = await baixarCatalogoDaRede();
+            aplicarCatalogo(fresh.db, fresh.cats);
+            salvarCacheCatalogo();
+            renderizarViewAtual(); // re-renderiza silenciosamente com dados atualizados
+        } catch (err) {
+            console.warn('Falha ao atualizar catálogo em segundo plano, mantendo cache:', err);
+        }
+        return;
+    }
+
+    // Sem cache (primeira vez no aparelho) — precisa mostrar o loader mesmo
     document.getElementById('global-loader').style.display = 'flex';
     try {
-        const [cLive, sLive, cVod, sVod, cSeries, sSeries] = await Promise.all([
-            fetchAPI('get_live_categories'), fetchAPI('get_live_streams'),
-            fetchAPI('get_vod_categories'), fetchAPI('get_vod_streams'),
-            fetchAPI('get_series_categories'), fetchAPI('get_series')
-        ]);
-        
-        cats.live = cLive; db.live = sLive;
-        cats.vod = cVod; db.vod = sVod;
-        cats.series = cSeries; db.series = sSeries;
-        
-        cLive.forEach(c => catMaps.live[c.category_id] = c.category_name);
-        cVod.forEach(c => catMaps.vod[c.category_id] = c.category_name);
-        cSeries.forEach(c => catMaps.series[c.category_id] = c.category_name);
-        
-        dataLoaded = true;
+        const fresh = await baixarCatalogoDaRede();
+        aplicarCatalogo(fresh.db, fresh.cats);
+        salvarCacheCatalogo();
+
         document.getElementById('global-loader').style.display = 'none';
-        
-        // Chamadas para ui.js
-        if(abaAtiva === 'home') renderizarHome();
+        if (abaAtiva === 'home') renderizarHome();
         else {
             document.getElementById('category-bar').classList.remove('hidden');
             renderizarCategoriasLista(cats[abaAtiva]);

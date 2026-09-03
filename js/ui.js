@@ -3,6 +3,46 @@ function switchView(viewId) {
     document.getElementById(viewId).classList.add('active');
 }
 
+// ================== FIX DO HEADER SOMENDO NO SCROLL ==================
+// O header é feito pra ficar "transparente" lá no topo (pra combinar com o hero da Home) e
+// ficar sólido conforme rola a página — só que não existia nenhum listener de scroll pra isso
+// no código, então ele ficava sempre transparente e o conteúdo passava "por cima" visualmente.
+// Aqui garantimos: 1) o header fica fixo no topo (não sai da tela), 2) ganha fundo sólido +
+// leve blur assim que a página rola, com transição suave.
+(function corrigirHeaderFixo() {
+    const header = document.getElementById('top-nav');
+    if (!header) return;
+
+    // Garante que o header realmente fica fixo, mesmo que o CSS original não tenha isso 100% certo
+    const posicaoAtual = getComputedStyle(header).position;
+    if (posicaoAtual !== 'fixed' && posicaoAtual !== 'sticky') {
+        header.style.position = 'fixed';
+        header.style.top = '0';
+        header.style.left = '0';
+        header.style.right = '0';
+    }
+    header.style.zIndex = header.style.zIndex || '1000';
+    header.style.transition = 'background-color 0.25s ease, backdrop-filter 0.25s ease, box-shadow 0.25s ease';
+
+    function aplicarEstadoScroll() {
+        // #main-area é onde o conteúdo realmente rola nesse layout; caímos pro window como fallback
+        const mainArea = document.getElementById('main-area');
+        const scrollY = (mainArea && mainArea.scrollHeight > mainArea.clientHeight) ? mainArea.scrollTop : window.scrollY;
+        const rolou = scrollY > 40;
+
+        header.classList.toggle('scrolled', rolou);
+        header.style.backgroundColor = rolou ? 'rgba(10,10,12,0.92)' : 'transparent';
+        header.style.backdropFilter = rolou ? 'blur(14px)' : 'none';
+        header.style.boxShadow = rolou ? '0 2px 12px rgba(0,0,0,0.4)' : 'none';
+    }
+
+    aplicarEstadoScroll();
+    window.addEventListener('scroll', aplicarEstadoScroll, { passive: true });
+    document.getElementById('main-area')?.addEventListener('scroll', aplicarEstadoScroll, { passive: true });
+    // A troca de aba muda o container ativo — reavalia o estado logo depois
+    document.querySelectorAll('.nav-link').forEach(btn => btn.addEventListener('click', () => setTimeout(aplicarEstadoScroll, 50)));
+})();
+
 // Navegação Principal e Tabs
 document.getElementById('btn-search').addEventListener('click', () => {
     const searchWrapper = document.getElementById('search-wrapper');
@@ -394,12 +434,51 @@ function gerarHTMLCard(item, tipoAba, isEventLayout, isHistoryView) {
     return card;
 }
 
+function criarLinhaCanal(item) {
+    const id = item.stream_id || item.id;
+    const srcFinal = (item.stream_icon && !imagensQuebradas.has(item.stream_icon)) ? item.stream_icon : getFallbackSvg('TV');
+    const isFav = favoritos.live && favoritos.live.includes(id);
+
+    const row = document.createElement('div');
+    row.className = 'live-channel-row';
+    row.setAttribute('data-id', id);
+
+    // Algumas APIs mandam o EPG já embutido. Se tiver, usamos logo, senão "Carregando..."
+    const epgInicial = item.epg_title ? window.decodeBase64EPG(item.epg_title) : 'Carregando...';
+
+    row.innerHTML = `
+        <img src="${srcFinal}" onerror="marcarImagemQuebrada(this, '${getFallbackSvg('TV')}')" loading="lazy">
+        <div class="live-channel-info">
+            <div class="live-channel-name">${item.name}</div>
+            <div class="live-channel-prog" id="prog-mini-${id}">${epgInicial}</div>
+        </div>
+        <button class="btn-fav-live ${isFav ? 'is-fav' : ''}" onclick="toggleFav(event, ${id}, 'live')">
+            <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+        </button>
+    `;
+
+    row.addEventListener('click', () => {
+        document.querySelectorAll('.live-channel-row').forEach(el => el.classList.remove('selected'));
+        row.classList.add('selected');
+        const playUrl = `${credenciais.host}/live/${credenciais.user}/${credenciais.pass}/${id}.${item.container_extension || 'm3u8'}`;
+        livePlayer.src({ src: playUrl.replace('.ts', '.m3u8'), type: 'application/x-mpegURL' });
+        livePlayer.play().catch(e => console.error(e));
+
+        if (typeof carregarEPGCanal === "function") carregarEPGCanal(id);
+    });
+
+    return row;
+}
+
 function renderizarGrade(dados, tipoAba, isEventLayout = false, isHistoryView = false) {
     const gridUI = document.getElementById('media-grid');
     const liveContainer = document.getElementById('live-layout-container');
     const liveListUI = document.getElementById('live-channels-list');
     
     gridUI.innerHTML = ''; liveListUI.innerHTML = '';
+
+    // Cancela qualquer carregamento incremental de uma renderização anterior
+    if (window.liveLoadMoreObserver) window.liveLoadMoreObserver.disconnect();
     
     if (tipoAba === 'live') {
         gridUI.style.display = 'none';
@@ -423,55 +502,53 @@ function renderizarGrade(dados, tipoAba, isEventLayout = false, isHistoryView = 
             });
         }, { root: liveListUI, rootMargin: '50px' });
 
-        dados.forEach(item => {
-            const id = item.stream_id || item.id;
-            const srcFinal = (item.stream_icon && !imagensQuebradas.has(item.stream_icon)) ? item.stream_icon : getFallbackSvg('TV');
-            const isFav = favoritos.live && favoritos.live.includes(id);
+        // RENDERIZAÇÃO EM LOTES: listas de canais ao vivo podem ter milhares de itens.
+        // Criar todos os elementos de uma vez trava a tela por vários segundos. Em vez disso,
+        // renderizamos só o primeiro lote e vamos completando conforme o usuário rola a lista.
+        const LOTE = 80;
+        let indice = 0;
+        const sentinela = document.createElement('div');
+        sentinela.style.cssText = 'height:1px;';
 
-            const row = document.createElement('div');
-            row.className = 'live-channel-row';
-            row.setAttribute('data-id', id);
-            
-            // Algumas APIs mandam o EPG já embutido. Se tiver, usamos logo, senão "Carregando..."
-            const epgInicial = item.epg_title ? window.decodeBase64EPG(item.epg_title) : 'Carregando...';
+        function renderizarLote() {
+            const fim = Math.min(indice + LOTE, dados.length);
+            const frag = document.createDocumentFragment();
+            for (let i = indice; i < fim; i++) {
+                const row = criarLinhaCanal(dados[i]);
+                frag.appendChild(row);
+                window.epgObserver.observe(row);
+            }
+            liveListUI.appendChild(frag);
+            indice = fim;
 
-            row.innerHTML = `
-                <img src="${srcFinal}" onerror="marcarImagemQuebrada(this, '${getFallbackSvg('TV')}')" loading="lazy">
-                <div class="live-channel-info">
-                    <div class="live-channel-name">${item.name}</div>
-                    <div class="live-channel-prog" id="prog-mini-${id}">${epgInicial}</div>
-                </div>
-                <button class="btn-fav-live ${isFav ? 'is-fav' : ''}" onclick="toggleFav(event, ${id}, 'live')">
-                    <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
-                </button>
-            `;
-            
-            row.addEventListener('click', () => {
-                document.querySelectorAll('.live-channel-row').forEach(el => el.classList.remove('selected'));
-                row.classList.add('selected');
-                const playUrl = `${credenciais.host}/live/${credenciais.user}/${credenciais.pass}/${id}.${item.container_extension || 'm3u8'}`;
-                livePlayer.src({ src: playUrl.replace('.ts', '.m3u8'), type: 'application/x-mpegURL' });
-                livePlayer.play().catch(e => console.error(e));
-                
-                if (typeof carregarEPGCanal === "function") carregarEPGCanal(id);
-            });
-            
-            liveListUI.appendChild(row);
-            
-            // Manda o observador olhar para esta linha
-            window.epgObserver.observe(row); 
-        });
+            if (indice < dados.length) {
+                liveListUI.appendChild(sentinela);
+                loadMoreObserver.observe(sentinela);
+            }
+        }
+
+        const loadMoreObserver = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                loadMoreObserver.unobserve(sentinela);
+                renderizarLote();
+            }
+        }, { root: liveListUI, rootMargin: '400px' });
+        window.liveLoadMoreObserver = loadMoreObserver;
+
+        renderizarLote();
     } else {
         liveContainer.style.display = 'none';
         gridUI.style.display = 'grid';
+        const frag = document.createDocumentFragment();
         dados.slice(0, 500).forEach(item => {
             const card = gerarHTMLCard(item, tipoAba, false, isHistoryView);
             card.addEventListener('click', () => {
                 if (isHistoryView) abrirPlayer(item.url, item);
                 else abrirDetalhesMedia(item.stream_id || item.series_id || item.id, tipoAba);
             });
-            gridUI.appendChild(card);
+            frag.appendChild(card);
         });
+        gridUI.appendChild(frag);
     }
 }
 

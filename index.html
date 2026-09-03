@@ -5,12 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
-    
+
+    <!-- Preconnect: abre a conexão (DNS/TLS) com esses domínios antes de precisar deles,
+         economiza uns 100-300ms em cada primeira chamada pro TMDB e pro CDN do video.js -->
+    <link rel="preconnect" href="https://api.themoviedb.org">
+    <link rel="preconnect" href="https://image.tmdb.org">
+    <link rel="preconnect" href="https://vjs.zencdn.net">
+
     <title>Meu IPTV Premium</title>
     <link rel="icon" type="image/svg+xml" href="icon.svg">
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
     
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* Spinner simples enquanto o player carrega a nova fonte (loadedmetadata) */
+        #player-wrapper.player-loading::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 46px; height: 46px;
+            margin: -23px 0 0 -23px;
+            border: 4px solid rgba(255,255,255,0.25);
+            border-top-color: #ff5500;
+            border-radius: 50%;
+            animation: player-spin 0.8s linear infinite;
+            z-index: 40;
+        }
+        @keyframes player-spin { to { transform: rotate(360deg); } }
+        #player-wrapper { position: relative; }
+    </style>
 </head>
 <body>
 
