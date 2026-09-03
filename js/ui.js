@@ -455,8 +455,18 @@ function criarLinhaCanal(item) {
         document.querySelectorAll('.live-channel-row').forEach(el => el.classList.remove('selected'));
         row.classList.add('selected');
         const playUrl = `${credenciais.host}/live/${credenciais.user}/${credenciais.pass}/${id}.${item.container_extension || 'm3u8'}`;
-        livePlayer.src({ src: playUrl.replace('.ts', '.m3u8'), type: 'application/x-mpegURL' });
-        livePlayer.play().catch(e => console.error(e));
+        let urlFinalLive = playUrl.replace('.ts', '.m3u8');
+        // Mesma correção do player principal (ver player.js/abrirPlayer): esse
+        // miniplayer também precisa passar pelo proxy quando a URL é http://,
+        // senão o navegador bloqueia por Mixed Content.
+        if (urlFinalLive.toLowerCase().startsWith('http://')) {
+            urlFinalLive = montarUrlProxy(urlFinalLive);
+        }
+        livePlayer.src({ src: urlFinalLive, type: 'application/x-mpegURL' });
+        livePlayer.play().catch(e => {
+            if (e && e.name === 'AbortError') return;
+            console.error(e);
+        });
 
         if (typeof carregarEPGCanal === "function") carregarEPGCanal(id);
     });
