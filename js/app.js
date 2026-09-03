@@ -196,21 +196,14 @@ async function carregarCatalogoCompleto() {
     const cache = lerCacheCatalogo();
 
     if (cache) {
-        // 1) Mostra o cache imediatamente — usuário não espera nada
+        // Mostra o cache imediatamente — sem esperar nem gastar chamada nenhuma
+        // na API do provedor. A atualização agora só acontece quando o usuário
+        // clica no botão "Atualizar" (ver atualizarCatalogoManual), pra não ficar
+        // batendo no player_api.php toda vez que o app é aberto.
         aplicarCatalogo(cache.db, cache.cats);
         document.getElementById('global-loader').style.display = 'none';
         switchView(abaAtiva === 'home' ? 'home-view' : 'grid-view');
         renderizarViewAtual();
-
-        // 2) Atualiza em segundo plano, sem travar a tela
-        try {
-            const fresh = await baixarCatalogoDaRede();
-            aplicarCatalogo(fresh.db, fresh.cats);
-            salvarCacheCatalogo();
-            renderizarViewAtual(); // re-renderiza silenciosamente com dados atualizados
-        } catch (err) {
-            console.warn('Falha ao atualizar catálogo em segundo plano, mantendo cache:', err);
-        }
         return;
     }
 
@@ -234,6 +227,37 @@ async function carregarCatalogoCompleto() {
         document.getElementById('login-screen').style.display = 'flex';
     }
 }
+
+// Atualização manual do catálogo — chamada quando o usuário clica no botão de
+// refresh. Busca tudo de novo no provedor (pra pegar filmes/séries novos) e
+// substitui o cache. Não usa o loader gigante de tela cheia pra não interromper
+// o que a pessoa já está vendo; só dá um feedback visual discreto no botão.
+async function atualizarCatalogoManual() {
+    const btn = document.getElementById('btn-refresh-catalog');
+    if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.4';
+        btn.style.animation = 'spin 1s linear infinite';
+    }
+    try {
+        const fresh = await baixarCatalogoDaRede();
+        aplicarCatalogo(fresh.db, fresh.cats);
+        salvarCacheCatalogo();
+        renderizarViewAtual();
+    } catch (err) {
+        alert("Não foi possível atualizar o catálogo agora. Verifique sua conexão/proxy e tente de novo.");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.animation = '';
+        }
+    }
+}
+window.atualizarCatalogoManual = atualizarCatalogoManual;
+
+const btnRefreshCatalog = document.getElementById('btn-refresh-catalog');
+if (btnRefreshCatalog) btnRefreshCatalog.addEventListener('click', atualizarCatalogoManual);
 
 // INICIALIZAÇÃO E LÓGICA DE LOGIN (DOM Event Listeners Base)
 window.onload = () => {

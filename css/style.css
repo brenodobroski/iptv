@@ -561,3 +561,8 @@ body {
     .ep-row-img { width: 100%; aspect-ratio: 16/9; min-width: 100%;}
     .ep-row-info { padding: 15px; }
 }
+/* Animação do ícone de "Atualizar Catálogo" enquanto busca dados novos */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
