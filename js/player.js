@@ -48,7 +48,6 @@ function mostrarToastPlayer(texto) {
     if (!toast) {
         toast = document.createElement('div');
         toast.id = 'player-resume-toast';
-        toast.style.cssText = 'position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(20,20,22,0.9);color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;z-index:50;pointer-events:none;transition:opacity 0.4s;';
         document.getElementById('player-wrapper').appendChild(toast);
     }
     toast.textContent = texto;
@@ -64,6 +63,8 @@ function formatarTempo(segundos) {
     return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
 }
 
+let loadingTimeoutId = null;
+
 function abrirPlayer(url, metadados = null) {
     if (!url) return;
     videoEmReproducao = metadados; 
@@ -73,10 +74,16 @@ function abrirPlayer(url, metadados = null) {
 
     esconderErroPlayer();
     mostrarCarregandoPlayer(true);
+    clearTimeout(loadingTimeoutId);
     
     let urlCorrigida = url.toLowerCase().includes('.ts') && !url.toLowerCase().includes('/movie/') && !url.toLowerCase().includes('/series/') ? url.replace('.ts', '.m3u8') : url;
     
     player.src({ src: urlCorrigida, type: urlCorrigida.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4' });
+
+    function pararDeCarregar() {
+        mostrarCarregandoPlayer(false);
+        clearTimeout(loadingTimeoutId);
+    }
 
     // IMPORTANTE: `player.ready()` só dispara uma vez na vida do player (na inicialização),
     // então numa segunda reprodução ele já roda na hora, ANTES da nova fonte carregar os metadados
@@ -84,13 +91,25 @@ function abrirPlayer(url, metadados = null) {
     // O evento correto pra buscar (seek) é 'loadedmetadata', que dispara toda vez que uma nova
     // fonte (src) é carregada e a duração/currentTime já são válidos.
     player.one('loadedmetadata', () => {
-        mostrarCarregandoPlayer(false);
+        pararDeCarregar();
         const savedProgress = videoEmReproducao && historicoAssistidos[videoEmReproducao.id];
         if (savedProgress && savedProgress.currentTime > 0) {
             player.currentTime(savedProgress.currentTime);
             mostrarToastPlayer(`Continuando de ${formatarTempo(savedProgress.currentTime)}`);
         }
     });
+    // Rede de segurança: se por algum motivo 'loadedmetadata' não disparar mas o vídeo
+    // já está de fato tocando, tira o spinner de qualquer jeito.
+    player.one('playing', pararDeCarregar);
+
+    // Rede de segurança 2: se depois de 15s nada aconteceu (link travado, servidor fora do
+    // ar, CORS, etc), não deixa o spinner girando pra sempre — avisa e oferece tentar de novo.
+    loadingTimeoutId = setTimeout(() => {
+        if (player.paused() && (player.readyState() < 2)) {
+            mostrarCarregandoPlayer(false);
+            mostrarErroPlayer('O conteúdo está demorando demais para carregar. O servidor pode estar lento ou fora do ar.');
+        }
+    }, 15000);
 
     player.play().catch(e => console.error(e));
 }
@@ -106,23 +125,25 @@ function esconderErroPlayer() {
     if (erroEl) erroEl.remove();
 }
 
-// Tratamento de erro do player (canal fora do ar, link quebrado, etc) — em vez de travar mudo,
-// mostra uma mensagem clara com botão de tentar de novo.
-player.on('error', () => {
+// Tratamento de erro do player (canal fora do ar, link quebrado, demora demais, etc) — em vez
+// de travar mudo ou girando pra sempre, mostra uma mensagem clara com botão de tentar de novo.
+function mostrarErroPlayer(mensagem) {
+    clearTimeout(loadingTimeoutId);
     mostrarCarregandoPlayer(false);
     esconderErroPlayer();
     const erroEl = document.createElement('div');
     erroEl.id = 'player-erro-msg';
-    erroEl.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#fff;z-index:50;';
     erroEl.innerHTML = `
-        <p style="margin-bottom:12px;">Não foi possível reproduzir este conteúdo.</p>
-        <button id="btn-retry-player" style="padding:8px 20px;border-radius:6px;border:none;background:#ff5500;color:#fff;font-weight:bold;cursor:pointer;">Tentar novamente</button>
+        <p style="margin-bottom:12px;">${mensagem}</p>
+        <button id="btn-retry-player">Tentar novamente</button>
     `;
     document.getElementById('player-wrapper').appendChild(erroEl);
     document.getElementById('btn-retry-player').onclick = () => {
         if (videoEmReproducao && videoEmReproducao.url) abrirPlayer(videoEmReproducao.url, videoEmReproducao);
     };
-});
+}
+
+player.on('error', () => mostrarErroPlayer('Não foi possível reproduzir este conteúdo.'));
 
 // Atalhos de teclado: espaço (play/pause), setas (±10s), M (mudo)
 document.addEventListener('keydown', (e) => {

@@ -17,23 +17,6 @@
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
     
     <link rel="stylesheet" href="css/style.css">
-    <style>
-        /* Spinner simples enquanto o player carrega a nova fonte (loadedmetadata) */
-        #player-wrapper.player-loading::after {
-            content: '';
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 46px; height: 46px;
-            margin: -23px 0 0 -23px;
-            border: 4px solid rgba(255,255,255,0.25);
-            border-top-color: #ff5500;
-            border-radius: 50%;
-            animation: player-spin 0.8s linear infinite;
-            z-index: 40;
-        }
-        @keyframes player-spin { to { transform: rotate(360deg); } }
-        #player-wrapper { position: relative; }
-    </style>
 </head>
 <body>
 

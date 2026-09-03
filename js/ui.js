@@ -4,42 +4,36 @@ function switchView(viewId) {
 }
 
 // ================== FIX DO HEADER SOMENDO NO SCROLL ==================
-// O header é feito pra ficar "transparente" lá no topo (pra combinar com o hero da Home) e
-// ficar sólido conforme rola a página — só que não existia nenhum listener de scroll pra isso
-// no código, então ele ficava sempre transparente e o conteúdo passava "por cima" visualmente.
-// Aqui garantimos: 1) o header fica fixo no topo (não sai da tela), 2) ganha fundo sólido +
-// leve blur assim que a página rola, com transição suave.
+// Causa real do bug: quem rola o conteúdo NÃO é a window nem o #main-area (que tem
+// overflow:hidden no CSS) — é o elemento `.view-section.active` (ex: #home-view,
+// #media-detail, #grid-view). E eventos de "scroll" em elementos não fazem bubble
+// (não sobem pro pai), então um listener no document/main-area em fase normal nunca
+// via esses scrolls. A solução é ouvir na FASE DE CAPTURA (capture:true), que intercepta
+// o evento de qualquer elemento da árvore, não só os que fazem bubble.
 (function corrigirHeaderFixo() {
     const header = document.getElementById('top-nav');
     if (!header) return;
 
-    // Garante que o header realmente fica fixo, mesmo que o CSS original não tenha isso 100% certo
-    const posicaoAtual = getComputedStyle(header).position;
-    if (posicaoAtual !== 'fixed' && posicaoAtual !== 'sticky') {
-        header.style.position = 'fixed';
-        header.style.top = '0';
-        header.style.left = '0';
-        header.style.right = '0';
-    }
-    header.style.zIndex = header.style.zIndex || '1000';
     header.style.transition = 'background-color 0.25s ease, backdrop-filter 0.25s ease, box-shadow 0.25s ease';
 
     function aplicarEstadoScroll() {
-        // #main-area é onde o conteúdo realmente rola nesse layout; caímos pro window como fallback
-        const mainArea = document.getElementById('main-area');
-        const scrollY = (mainArea && mainArea.scrollHeight > mainArea.clientHeight) ? mainArea.scrollTop : window.scrollY;
+        const viewAtiva = document.querySelector('.view-section.active');
+        const scrollY = viewAtiva ? viewAtiva.scrollTop : 0;
         const rolou = scrollY > 40;
 
         header.classList.toggle('scrolled', rolou);
-        header.style.backgroundColor = rolou ? 'rgba(10,10,12,0.92)' : 'transparent';
-        header.style.backdropFilter = rolou ? 'blur(14px)' : 'none';
-        header.style.boxShadow = rolou ? '0 2px 12px rgba(0,0,0,0.4)' : 'none';
+        // Só setamos background-color (via inline) por cima do gradiente que já existe no CSS.
+        // O background-color pintado fica "por trás" do gradiente e aparece exatamente onde
+        // o gradiente é transparente — resultado: o header fica sólido de ponta a ponta.
+        header.style.backgroundColor = rolou ? 'rgba(10,10,12,0.95)' : '';
+        header.style.backdropFilter = rolou ? 'blur(14px)' : '';
+        header.style.boxShadow = rolou ? '0 2px 12px rgba(0,0,0,0.4)' : '';
     }
 
     aplicarEstadoScroll();
-    window.addEventListener('scroll', aplicarEstadoScroll, { passive: true });
-    document.getElementById('main-area')?.addEventListener('scroll', aplicarEstadoScroll, { passive: true });
-    // A troca de aba muda o container ativo — reavalia o estado logo depois
+    // capture:true é o pulo do gato aqui — sem isso o evento nunca chega até nós
+    document.addEventListener('scroll', aplicarEstadoScroll, { capture: true, passive: true });
+    // Troca de aba/visão também precisa reavaliar (a nova view pode já estar rolada ou não)
     document.querySelectorAll('.nav-link').forEach(btn => btn.addEventListener('click', () => setTimeout(aplicarEstadoScroll, 50)));
 })();
 

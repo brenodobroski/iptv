@@ -420,6 +420,40 @@ body {
 
 /* PLAYER OVERLAY */
 #player-wrapper { display: none; position: absolute; inset: 0; background: #000; z-index: 5000; flex-direction: column; }
+
+/* O Video.js sozinho usa um tamanho padrão pequeno (tipo 300x150). Como o #player-wrapper
+   já ocupa a tela inteira, só precisamos fazer o próprio elemento do player (e o vídeo
+   dentro dele) preencherem 100% do espaço do wrapper. */
+#player-wrapper .video-js,
+#player-wrapper #my-video {
+    position: absolute; inset: 0;
+    width: 100% !important; height: 100% !important;
+}
+#player-wrapper .video-js video,
+#player-wrapper .vjs-tech { width: 100% !important; height: 100% !important; object-fit: contain; }
+
+/* Spinner de carregamento do player principal */
+#player-wrapper.player-loading::after {
+    content: ''; position: absolute; top: 50%; left: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px;
+    border: 4px solid rgba(255,255,255,0.25); border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite; z-index: 5050; pointer-events: none;
+}
+#player-erro-msg {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center;
+    color: white; z-index: 5050; background: rgba(20,20,22,0.85); backdrop-filter: blur(10px);
+    padding: 30px 40px; border-radius: 16px; border: 1px solid var(--border-glass);
+}
+#btn-retry-player {
+    margin-top: 14px; padding: 10px 24px; border-radius: 12px; border: none; background: var(--accent);
+    color: white; font-weight: 700; cursor: pointer; transition: 0.2s ease;
+}
+#btn-retry-player:hover { background: var(--accent-hover); transform: scale(1.03); }
+#player-resume-toast {
+    position: absolute; top: 30px; left: 50%; transform: translateX(-50%); z-index: 5050;
+    background: rgba(20,20,22,0.85); backdrop-filter: blur(10px); color: white; padding: 10px 20px;
+    border-radius: 12px; font-size: 14px; font-weight: 600; border: 1px solid var(--border-glass);
+    transition: opacity 0.4s ease; pointer-events: none;
+}
 #btn-fechar-player { 
     position: absolute; top: 30px; left: 30px; background: rgba(30,30,30,0.5); border: 1px solid var(--border-glass); 
     color: white; padding: 12px 24px; border-radius: 12px; cursor: pointer; z-index: 5100; display: flex; align-items: center; 
