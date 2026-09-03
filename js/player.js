@@ -77,8 +77,18 @@ function abrirPlayer(url, metadados = null) {
     clearTimeout(loadingTimeoutId);
     
     let urlCorrigida = url.toLowerCase().includes('.ts') && !url.toLowerCase().includes('/movie/') && !url.toLowerCase().includes('/series/') ? url.replace('.ts', '.m3u8') : url;
-    
-    player.src({ src: urlCorrigida, type: urlCorrigida.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4' });
+
+    // IMPORTANTE: o provedor Xtream só fala HTTP, mas a página roda em HTTPS (Vercel).
+    // Se mandarmos a URL http:// direto pro video.js, o navegador bloqueia por
+    // "Mixed Content" (erro CODE:2 MEDIA_ERR_NETWORK). Por isso passamos pelo mesmo
+    // proxy Python usado nas chamadas de API — ele também reescreve os links internos
+    // do .m3u8 (segmentos/variantes) pra continuarem em HTTPS. Se um dia a URL já vier
+    // em https://, não precisa proxiar.
+    if (urlCorrigida.toLowerCase().startsWith('http://')) {
+        urlCorrigida = montarUrlProxy(urlCorrigida);
+    }
+
+    player.src({ src: urlCorrigida, type: urlCorrigida.toLowerCase().includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4' });
 
     function pararDeCarregar() {
         mostrarCarregandoPlayer(false);
@@ -111,7 +121,13 @@ function abrirPlayer(url, metadados = null) {
         }
     }, 15000);
 
-    player.play().catch(e => console.error(e));
+    // AbortError aqui é inofensivo: acontece quando um play() em andamento é
+    // interrompido por um pause() (ex: usuário troca de canal rápido, ou fechamos
+    // o player enquanto a promise ainda não resolveu). Não indica falha real.
+    player.play().catch(e => {
+        if (e && e.name === 'AbortError') return;
+        console.error(e);
+    });
 }
 
 function mostrarCarregandoPlayer(mostrar) {

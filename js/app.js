@@ -102,17 +102,24 @@ async function buscarTMDB(nomeOriginal, tipo) {
 }
 
 // LÓGICA DE API DO SEU SERVIDOR / VERCEL
+const VERCEL_PROD_URL = "https://breno-iptv.vercel.app";
+
+// Monta a URL do nosso proxy Python apontando pra `targetUrl` (que pode ser uma
+// chamada da player_api.php OU um link de vídeo http://.../live|movie|series/...).
+// Centralizado aqui porque o player.js também precisa disso (ver player.js) para
+// evitar o erro de "Mixed Content" ao tocar vídeo: a página é HTTPS, então qualquer
+// URL http:// direta é bloqueada pelo navegador e precisa passar por este proxy.
+function montarUrlProxy(targetUrl) {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return `http://localhost:8000/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+    }
+    return `${VERCEL_PROD_URL}/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+}
+window.montarUrlProxy = montarUrlProxy;
+
 async function fetchAPI(action, params = '') {
     const targetUrl = `${credenciais.host}/player_api.php?username=${credenciais.user}&password=${credenciais.pass}&action=${action}${params}`;
-    
-    const VERCEL_PROD_URL = "https://breno-iptv.vercel.app"; 
-    
-    let proxyUrl = "";
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        proxyUrl = `http://localhost:8000/api/proxy?url=${encodeURIComponent(targetUrl)}`;
-    } else {
-        proxyUrl = `${VERCEL_PROD_URL}/api/proxy?url=${encodeURIComponent(targetUrl)}`;
-    }
+    const proxyUrl = montarUrlProxy(targetUrl);
     const response = await fetch(proxyUrl);
     if (!response.ok) throw new Error('Erro na rede');
     return await response.json();
