@@ -26,7 +26,25 @@ let historicoAssistidos = JSON.parse(localStorage.getItem('iptv_api_history')) |
 let videoEmReproducao = null;
 
 // Fallbacks de Imagem
-const getFallbackSvg = (tipo) => `data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='300'%3E%3Crect width='100%25' height='100%25' fill='%23121214'/%3E%3Ctext x='50%25' y='50%25' fill='%233f3f46' font-family='sans-serif' font-size='20' font-weight='bold' text-anchor='middle' dy='.3em'%3E${tipo}%3C/text%3E%3C/svg%3E`;
+//
+// BUG CORRIGIDO: a versão anterior montava a data URI manualmente com aspas
+// simples dentro do SVG (xmlns='...', width='200'...). Essa URL depois é
+// injetada dentro de atributos HTML inline tipo onerror="algumaFuncao(this,
+// '${fallbackSvg}')" — que TAMBÉM usa aspas simples pra delimitar o argumento.
+// Resultado: assim que o navegador encontrava a primeira aspas simples do
+// SVG, ele achava que o argumento da função tinha terminado ali, e o resto
+// virava lixo sintático — daí o erro "missing ) after argument list" no
+// console (aparecendo como vindo de "(index):1", já que é um atributo inline
+// do próprio HTML, não de um arquivo .js).
+// A correção: gerar o SVG com aspas DUPLAS (sintaxe válida em SVG/XML) e
+// então rodar tudo por encodeURIComponent, que converte QUALQUER aspas,
+// símbolo ou caractere especial em sequência %XX — não sobra nenhuma aspas
+// literal na string final, então ela pode ser injetada com segurança dentro
+// de qualquer atributo HTML, com aspas simples ou duplas.
+const getFallbackSvg = (tipo) => {
+    const svgCru = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300"><rect width="100%" height="100%" fill="#121214"/><text x="50%" y="50%" fill="#3f3f46" font-family="sans-serif" font-size="20" font-weight="bold" text-anchor="middle" dy=".3em">${tipo}</text></svg>`;
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svgCru)}`;
+};
 const imagensQuebradas = new Set();
 
 window.marcarImagemQuebrada = function(imgElement, fallbackSvg) {
