@@ -32,6 +32,24 @@ ALLOWED_PATH_PARTS = ("/player_api.php", "/live/", "/movie/", "/series/", "/hls/
 # andar mais rápido que a demora de cada conexão nova.
 client = httpx.AsyncClient(timeout=60.0, follow_redirects=True)
 
+# Tamanho máximo de cada pedaço de vídeo repassado por execução (ver uso mais
+# abaixo). 6 MB dá vários segundos de vídeo de sobra pro player continuar
+# tocando enquanto pede o próximo pedaço, mas termina rápido o bastante pra
+# nunca chegar perto do limite de duração de uma função serverless.
+MAX_CHUNK_BYTES = 6 * 1024 * 1024
+
+
+def _parse_range_header(range_header):
+    """Extrai (inicio, fim) de um cabeçalho 'Range: bytes=100-200' ou
+    'bytes=100-'. Se não houver cabeçalho, assume que o pedido começa do
+    byte 0 (comportamento padrão de navegador na primeira requisição)."""
+    if not range_header or not range_header.startswith("bytes="):
+        return 0, None
+    partes = range_header.split("=", 1)[1].split("-")
+    inicio = int(partes[0]) if partes[0] else 0
+    fim = int(partes[1]) if len(partes) > 1 and partes[1] else None
+    return inicio, fim
+
 
 def _montar_url_proxy(base_absoluta: str, url_alvo: str) -> str:
     """Monta a URL do próprio proxy apontando para `url_alvo`, usando o mesmo host
@@ -60,19 +78,24 @@ async def proxy(request: Request, url: str = Query(...)):
         raise HTTPException(status_code=403, detail="Endpoint nao permitido.")
 
     # --- Arquivos de vídeo de verdade (segmento .ts, filme, episódio) ---
-    # Aqui NÃO podemos baixar o arquivo inteiro antes de responder: filmes têm
-    # centenas de MB/alguns GB, e isso estoura tempo de execução e limite de
-    # memória/tamanho de resposta de funções serverless — o navegador recebe
-    # um arquivo cortado no meio e o video.js acusa "formato não suportado"
-    # (CODE:4). A solução é encaminhar em streaming, pedaço por pedaço, e
-    # repassar o cabeçalho "Range" (usado pelo player pra buscar/seek), senão
-    # o player não consegue avançar/retroceder no vídeo.
+    # Aqui NÃO podemos baixar/repassar o arquivo inteiro numa execução só: filmes
+    # têm centenas de MB/alguns GB, e funções serverless da Vercel têm um limite
+    # rígido de duração por execução (maxDuration). Se um pedido de vídeo pedir
+    # "me manda o resto do arquivo" e isso demorar mais que esse limite, a Vercel
+    # MATA a função no meio da transferência — a conexão cai sem nenhum erro
+    # limpo, e o player trava, exigindo fechar e reabrir pra criar uma conexão
+    # nova. Para evitar isso, NUNCA repassamos mais que MAX_CHUNK_BYTES de uma
+    # vez, não importa quanto o player pediu — cada chamada termina em poucos
+    # segundos, bem longe do limite, e o player simplesmente pede o próximo
+    # pedaço em seguida (é assim que streaming de vídeo profissional funciona).
     if _e_arquivo_de_midia(parsed.path):
-        headers_upstream = {}
-        range_header = request.headers.get("range")
-        if range_header:
-            headers_upstream["range"] = range_header
+        inicio, fim_pedido = _parse_range_header(request.headers.get("range"))
+        fim_desejado = inicio + MAX_CHUNK_BYTES - 1
+        if fim_pedido is not None:
+            fim_desejado = min(fim_desejado, fim_pedido)
+        tamanho_do_pedaco = fim_desejado - inicio + 1
 
+        headers_upstream = {"range": f"bytes={inicio}-{fim_desejado}"}
         try:
             req_upstream = client.build_request("GET", url, headers=headers_upstream)
             upstream = await client.send(req_upstream, stream=True)
@@ -81,21 +104,54 @@ async def proxy(request: Request, url: str = Query(...)):
 
         media_type = upstream.headers.get("content-type", "video/mp2t")
         headers_resposta = {"Accept-Ranges": "bytes"}
-        if "content-range" in upstream.headers:
+        status_resposta = 206
+
+        if upstream.status_code == 206 and "content-range" in upstream.headers:
+            # Caminho normal: a origem entendeu nosso Range e já nos diz
+            # exatamente qual pedaço (e o tamanho total do arquivo) ela mandou.
+            # Confiamos nesse valor, só reforçamos o corte no gerador abaixo
+            # como rede de segurança caso ela mande além do combinado.
             headers_resposta["Content-Range"] = upstream.headers["content-range"]
-        if "content-length" in upstream.headers:
-            headers_resposta["Content-Length"] = upstream.headers["content-length"]
+            if "content-length" in upstream.headers:
+                tamanho_do_pedaco = min(tamanho_do_pedaco, int(upstream.headers["content-length"]))
+        elif upstream.status_code == 200:
+            # Caso raro: a origem não suporta Range e mandou o arquivo inteiro.
+            # Ainda assim cortamos o quanto REPASSAMOS pra manter a execução
+            # curta — usamos o Content-Length dela pra saber o tamanho real
+            # total e montar um Content-Range coerente nós mesmos.
+            tamanho_total = upstream.headers.get("content-length")
+            fim_real = inicio + tamanho_do_pedaco - 1
+            if tamanho_total:
+                fim_real = min(fim_real, int(tamanho_total) - 1)
+                tamanho_do_pedaco = fim_real - inicio + 1
+                headers_resposta["Content-Range"] = f"bytes {inicio}-{fim_real}/{tamanho_total}"
+        else:
+            # Erro de verdade vindo da origem (404, 403, etc.) — repassa como está.
+            status_resposta = upstream.status_code
+
+        if status_resposta == 206:
+            headers_resposta["Content-Length"] = str(tamanho_do_pedaco)
 
         async def gerador_de_bytes():
+            enviado = 0
             try:
                 async for pedaco in upstream.aiter_bytes():
+                    if status_resposta == 206:
+                        restante = tamanho_do_pedaco - enviado
+                        if restante <= 0:
+                            break
+                        if len(pedaco) > restante:
+                            pedaco = pedaco[:restante]
                     yield pedaco
+                    enviado += len(pedaco)
+                    if status_resposta == 206 and enviado >= tamanho_do_pedaco:
+                        break
             finally:
                 await upstream.aclose()
 
         return StreamingResponse(
             gerador_de_bytes(),
-            status_code=upstream.status_code,
+            status_code=status_resposta,
             media_type=media_type,
             headers=headers_resposta,
         )
@@ -108,39 +164,6 @@ async def proxy(request: Request, url: str = Query(...)):
 
     # Preserva o tipo de conteudo original quando existir, com fallback para JSON
     media_type = response.headers.get("content-type", "application/json")
-
-    # --- Correção do erro de "Mixed Content" no player ---
-    # O provedor Xtream só fala HTTP. O app roda em HTTPS (Vercel), então o navegador
-    # bloqueia qualquer requisição HTTP feita pelo player (Mixed Content). Já resolvemos
-    # isso para a própria playlist (o player pede ela através deste proxy, em HTTPS).
-    # Mas um arquivo .m3u8 contém, dentro dele, links (absolutos ou relativos) para os
-    # segmentos de vídeo (.ts) ou para outras variantes de qualidade — e esses links
-    # continuam apontando para http://. Se não reescrevermos essas linhas, o player lê
-    # a playlist certinho, mas ao tentar baixar cada segmento cai no mesmo bloqueio.
-    # Solução: quando a resposta é uma playlist HLS, trocamos cada linha de URI pelo
-    # endereço deste mesmo proxy (em HTTPS), recursivamente.
-    e_playlist_hls = "mpegurl" in media_type.lower() or parsed.path.lower().endswith(".m3u8")
-
-    if e_playlist_hls and response.status_code == 200:
-        base_absoluta = str(request.base_url)  # ex: https://breno-iptv.vercel.app/
-        texto_original = response.content.decode("utf-8", errors="ignore")
-
-        linhas_reescritas = []
-        for linha in texto_original.splitlines():
-            linha_limpa = linha.strip()
-            if linha_limpa and not linha_limpa.startswith("#"):
-                # Não é comentário/tag do m3u8 — é uma URI de segmento ou de variante.
-                # Pode vir relativa (ex: "90013_1.ts") ou absoluta; resolvemos contra a
-                # URL original antes de embrulhar no proxy.
-                uri_absoluta = urljoin(url, linha_limpa)
-                linhas_reescritas.append(_montar_url_proxy(base_absoluta, uri_absoluta))
-            else:
-                linhas_reescritas.append(linha)
-
-        novo_conteudo = "\n".join(linhas_reescritas)
-        return Response(content=novo_conteudo, media_type=media_type, status_code=response.status_code)
-
-    return Response(content=response.content, media_type=media_type, status_code=response.status_code)
 
     # --- Correção do erro de "Mixed Content" no player ---
     # O provedor Xtream só fala HTTP. O app roda em HTTPS (Vercel), então o navegador

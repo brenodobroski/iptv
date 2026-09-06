@@ -38,6 +38,7 @@ function forcarFechamentoPlayer() {
         document.getElementById('player-wrapper').style.display = 'none';
         videoEmReproducao = null;
         esconderErroPlayer();
+        pararWatchdogTravamento();
     }
     if (livePlayer) livePlayer.pause();
 }
@@ -65,8 +66,68 @@ function formatarTempo(segundos) {
 
 let loadingTimeoutId = null;
 
-function abrirPlayer(url, metadados = null) {
+// ================== RECUPERAÇÃO AUTOMÁTICA DE TRAVAMENTO ==================
+// Filmes/séries são arquivos grandes, e o proxy agora entrega em pedaços
+// pequenos (ver main.py) — mas mesmo assim uma rede instável pode falhar num
+// pedaço específico. Hoje, quando isso acontecia, o vídeo só travava e a
+// pessoa precisava sair do player e apertar play de novo manualmente (o que,
+// por sorte, resume do ponto salvo — mas exige que ELA perceba o problema).
+// A ideia aqui é fazer automaticamente o que "sair e dar play de novo" fazia:
+// reabrir a mesma URL (retomando de onde parou, graças ao histórico salvo),
+// sem incomodar a pessoa, e só mostrar um erro de verdade se isso falhar
+// repetidas vezes seguidas (nesse caso, provavelmente é a internet dela ou o
+// servidor do provedor que está fora do ar).
+let tentativasAutoRecuperacao = 0;
+const MAX_TENTATIVAS_AUTO_RECUPERACAO = 4;
+let watchdogTravamentoId = null;
+let ultimoTempoWatchdog = -1;
+
+function tentarRecuperarPlayer(motivo) {
+    if (!videoEmReproducao || !videoEmReproducao.url) {
+        mostrarErroPlayer('Não foi possível reproduzir este conteúdo.');
+        return;
+    }
+    tentativasAutoRecuperacao++;
+    if (tentativasAutoRecuperacao > MAX_TENTATIVAS_AUTO_RECUPERACAO) {
+        mostrarErroPlayer('A reprodução caiu várias vezes seguidas. Verifique sua conexão e tente novamente em instantes.');
+        return;
+    }
+    console.warn(`[player] ${motivo} — recuperando automaticamente (tentativa ${tentativasAutoRecuperacao}/${MAX_TENTATIVAS_AUTO_RECUPERACAO})`);
+    mostrarToastPlayer('Reconectando...');
+    abrirPlayer(videoEmReproducao.url, videoEmReproducao, true);
+}
+
+function iniciarWatchdogTravamento() {
+    pararWatchdogTravamento();
+    ultimoTempoWatchdog = -1;
+    watchdogTravamentoId = setInterval(() => {
+        if (document.getElementById('player-wrapper').style.display !== 'flex') return;
+        if (player.paused() || player.seeking() || player.ended()) {
+            ultimoTempoWatchdog = player.currentTime();
+            return;
+        }
+        const tempoAtual = player.currentTime();
+        if (tempoAtual === ultimoTempoWatchdog) {
+            tentarRecuperarPlayer('Reprodução parou de avançar');
+        } else {
+            tentativasAutoRecuperacao = 0; // voltou a andar normal — zera o contador
+        }
+        ultimoTempoWatchdog = tempoAtual;
+    }, 10000); // checa a cada 10s
+}
+
+function pararWatchdogTravamento() {
+    if (watchdogTravamentoId) clearInterval(watchdogTravamentoId);
+    watchdogTravamentoId = null;
+}
+
+function abrirPlayer(url, metadados = null, ehTentativaAutomatica = false) {
     if (!url) return;
+    // Só zera o contador de tentativas quando é uma abertura NOVA pedida pela
+    // pessoa — se for uma reconexão automática (ehTentativaAutomatica=true),
+    // preserva a contagem pra não tentar pra sempre em loop infinito.
+    if (!ehTentativaAutomatica) tentativasAutoRecuperacao = 0;
+
     videoEmReproducao = metadados; 
     lastViewBeforePlayer = document.querySelector('.view-section.active').id;
     const wrapper = document.getElementById('player-wrapper');
@@ -111,13 +172,17 @@ function abrirPlayer(url, metadados = null) {
     // Rede de segurança: se por algum motivo 'loadedmetadata' não disparar mas o vídeo
     // já está de fato tocando, tira o spinner de qualquer jeito.
     player.one('playing', pararDeCarregar);
+    // Só liga o vigia de travamento DEPOIS que a reprodução realmente começou —
+    // evita falso alarme durante o carregamento inicial (buffer ainda em 0).
+    player.one('playing', iniciarWatchdogTravamento);
 
     // Rede de segurança 2: se depois de 15s nada aconteceu (link travado, servidor fora do
-    // ar, CORS, etc), não deixa o spinner girando pra sempre — avisa e oferece tentar de novo.
+    // ar, CORS, etc), não deixa o spinner girando pra sempre — tenta reconectar sozinho
+    // antes de incomodar a pessoa com uma mensagem de erro.
     loadingTimeoutId = setTimeout(() => {
         if (player.paused() && (player.readyState() < 2)) {
             mostrarCarregandoPlayer(false);
-            mostrarErroPlayer('O conteúdo está demorando demais para carregar. O servidor pode estar lento ou fora do ar.');
+            tentarRecuperarPlayer('Demorou demais pra carregar');
         }
     }, 15000);
 
@@ -159,7 +224,7 @@ function mostrarErroPlayer(mensagem) {
     };
 }
 
-player.on('error', () => mostrarErroPlayer('Não foi possível reproduzir este conteúdo.'));
+player.on('error', () => tentarRecuperarPlayer('Erro de rede/mídia reportado pelo video.js'));
 
 // Atalhos de teclado: espaço (play/pause), setas (±10s), M (mudo)
 document.addEventListener('keydown', (e) => {
@@ -231,6 +296,7 @@ document.getElementById('btn-fechar-player').addEventListener('click', () => {
     document.getElementById('player-wrapper').style.display = 'none'; 
     videoEmReproducao = null;
     esconderErroPlayer();
+    pararWatchdogTravamento();
     
     if (lastViewBeforePlayer === 'home-view') {
         renderizarHome(); // chamando função de ui.js
