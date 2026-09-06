@@ -240,8 +240,24 @@ body {
 .media-card:hover .card-title { color: white; }
 
 /* ================== GRID E LISTAS ================== */
-#media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; row-gap: 40px; }
-.grid-header { font-size: 28px; font-weight: 800; color: white; letter-spacing: -0.5px; display: none; }
+#media-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; row-gap: 40px;
+    /* Espaço padrão: só o menu principal fixo (90px) fica por cima. */
+    padding: 110px 60px 40px 60px;
+}
+.grid-header {
+    font-size: 28px; font-weight: 800; color: white; letter-spacing: -0.5px; display: none;
+    padding: 110px 60px 10px 60px;
+}
+/* Quando a barra de categorias também está visível (Filmes/Séries), ela soma
+   mais ~65px de altura fixa por cima do menu principal. Sem esse ajuste, o
+   texto do cabeçalho de resultados e os primeiros cards nasciam bem embaixo
+   da barra de categorias — em vez de embaixo dela, ficavam ATRÁS dela (por
+   causa do z-index maior da barra), causando a sobreposição visual. */
+#grid-view.tem-category-bar #media-grid,
+#grid-view.tem-category-bar .grid-header {
+    padding-top: 175px;
+}
 
 /* ================== LAYOUT TV AO VIVO ================== */
 #live-layout-container {
@@ -544,6 +560,14 @@ body {
 
     /* 8. TV AO VIVO (Ajustes de Grid) */
     #grid-view, #media-grid { padding: 20px; }
+    .grid-header { padding-top: 20px; }
+    /* No mobile a #category-bar deixa de ser "fixed" (vira parte do fluxo normal
+       da página, ver regra acima), então o espaço extra de 175px calculado pro
+       desktop não é necessário aqui — sem este reset, a regra mais específica
+       ".tem-category-bar" (definida lá em cima) venceria por especificidade e
+       deixaria um vão enorme em branco no topo da grade no celular. */
+    #grid-view.tem-category-bar #media-grid,
+    #grid-view.tem-category-bar .grid-header { padding-top: 20px; }
     #live-layout-container { flex-direction: column; padding: 20px; height: auto; overflow: visible;}
     #live-category-sidebar { left: -100%; width: 80%; top: 0; z-index: 3000;}
     #live-channels-column { flex: none; height: 400px; margin-bottom: 20px;}

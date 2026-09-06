@@ -102,18 +102,26 @@ async function buscarTMDB(nomeOriginal, tipo) {
 }
 
 // LÓGICA DE API DO SEU SERVIDOR / VERCEL
-const VERCEL_PROD_URL = "https://breno-iptv.vercel.app";
-
-// Monta a URL do nosso proxy Python apontando pra `targetUrl` (que pode ser uma
-// chamada da player_api.php OU um link de vídeo http://.../live|movie|series/...).
-// Centralizado aqui porque o player.js também precisa disso (ver player.js) para
-// evitar o erro de "Mixed Content" ao tocar vídeo: a página é HTTPS, então qualquer
-// URL http:// direta é bloqueada pelo navegador e precisa passar por este proxy.
+//
+// IMPORTANTE: antes apontávamos sempre para um domínio de PRODUÇÃO fixo
+// ("breno-iptv.vercel.app"). Isso causa um bug sutil e grave: se você testar o
+// app por uma URL de PREVIEW (a Vercel gera uma nova a cada deploy, tipo
+// "iptv-xxxxx-seuprojeto.vercel.app"), o HTML/JS carregado é o do preview
+// (código novo), mas as chamadas de API e vídeo continuavam batendo no domínio
+// de produção antigo — que podia estar rodando uma versão DIFERENTE e mais
+// antiga do main.py. Front e back ficam dessincronizados, e os sintomas são
+// exatamente esses: parte funciona, parte dá 404/CORS sem explicação aparente.
+//
+// Como o vercel.json já reescreve "/api/*" para dentro do MESMO deployment
+// (mesma origem), a forma correta é usar caminho RELATIVO. Assim, não importa
+// se você está testando um preview, a produção, ou rodando localmente com o
+// backend embutido: o front sempre fala com o backend do MESMO deployment que
+// o serviu, garantindo que os dois estão sempre na mesma versão.
 function montarUrlProxy(targetUrl) {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         return `http://localhost:8000/api/proxy?url=${encodeURIComponent(targetUrl)}`;
     }
-    return `${VERCEL_PROD_URL}/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+    return `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
 }
 window.montarUrlProxy = montarUrlProxy;
 
@@ -170,12 +178,14 @@ function aplicarCatalogo(novoDb, novosCats) {
 
 function renderizarViewAtual() {
     if (abaAtiva === 'home') {
+        definirVisibilidadeCategoryBar(false);
         renderizarHome();
     } else if (abaAtiva === 'live') {
+        definirVisibilidadeCategoryBar(false);
         renderizarCategoriasLiveSidebar();
         renderizarGrade(db.live, 'live');
     } else {
-        document.getElementById('category-bar').classList.remove('hidden');
+        definirVisibilidadeCategoryBar(true);
         renderizarCategoriasLista(cats[abaAtiva]);
     }
 }
@@ -217,7 +227,7 @@ async function carregarCatalogoCompleto() {
         document.getElementById('global-loader').style.display = 'none';
         if (abaAtiva === 'home') renderizarHome();
         else {
-            document.getElementById('category-bar').classList.remove('hidden');
+            definirVisibilidadeCategoryBar(true);
             renderizarCategoriasLista(cats[abaAtiva]);
             switchView('grid-view');
         }

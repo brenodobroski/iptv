@@ -3,6 +3,29 @@ function switchView(viewId) {
     document.getElementById(viewId).classList.add('active');
 }
 
+// ================== CONTROLE CENTRAL DA BARRA DE CATEGORIAS ==================
+// Antes, o código que mostrava/escondia a #category-bar estava espalhado em vários
+// lugares (troca de aba, carregamento de catálogo) e a página de detalhes de
+// filme/série NUNCA a escondia — por isso ela ficava flutuando por cima do
+// título/poster (barra fixa com z-index alto) e, junto com o cabeçalho "Resultados
+// para..." dos filtros de busca, sofria sobreposição de texto porque o espaço
+// reservado no topo da grade não contava com a altura extra dessa barra.
+// Centralizar aqui garante que toda vez que a barra aparece/some, o espaçamento
+// da grade (#grid-view) é ajustado junto, via a classe "tem-category-bar".
+function definirVisibilidadeCategoryBar(mostrar) {
+    const bar = document.getElementById('category-bar');
+    const gridView = document.getElementById('grid-view');
+    if (!bar) return;
+    if (mostrar) {
+        bar.classList.remove('hidden');
+        if (gridView) gridView.classList.add('tem-category-bar');
+    } else {
+        bar.classList.add('hidden');
+        if (gridView) gridView.classList.remove('tem-category-bar');
+    }
+}
+window.definirVisibilidadeCategoryBar = definirVisibilidadeCategoryBar;
+
 // ================== FIX DO HEADER SOMENDO NO SCROLL ==================
 // Causa real do bug: quem rola o conteúdo NÃO é a window nem o #main-area (que tem
 // overflow:hidden no CSS) — é o elemento `.view-section.active` (ex: #home-view,
@@ -69,13 +92,13 @@ document.querySelectorAll('.nav-link').forEach(btn => {
         currentCatId = null;
 
         if (abaAtiva === 'home') {
-            document.getElementById('category-bar').classList.add('hidden');
+            definirVisibilidadeCategoryBar(false);
             document.getElementById('search-wrapper').classList.remove('active');
             if (dataLoaded) renderizarHome();
             switchView('home-view');
         } else if (abaAtiva === 'live') {
             // Quando clica em Ao Vivo:
-            document.getElementById('category-bar').classList.add('hidden');
+            definirVisibilidadeCategoryBar(false);
             if (dataLoaded) {
                 renderizarCategoriasLiveSidebar(); // Gera o sidebar
                 renderizarGrade(db.live, 'live'); // Mostra todos os canais por padrão
@@ -83,7 +106,7 @@ document.querySelectorAll('.nav-link').forEach(btn => {
             }
         } else {
             // Quando clica em Filmes ou Séries:
-            document.getElementById('category-bar').classList.remove('hidden');
+            definirVisibilidadeCategoryBar(true);
             if (dataLoaded) {
                 renderizarCategoriasLista(cats[abaAtiva]);
                 switchView('grid-view');
@@ -559,7 +582,11 @@ function renderizarGrade(dados, tipoAba, isEventLayout = false, isHistoryView = 
 /* DETALHES DE MÍDIA COM INTEGRAÇÃO TMDB & NOVO LAYOUT DE SÉRIES */
 async function abrirDetalhesMedia(id, tipo) {
     document.getElementById('global-loader').style.display = 'flex';
-    
+    // A barra de categorias não faz sentido na página de detalhes de um título
+    // específico — some daqui, e volta (se for o caso) quando o usuário fechar
+    // os detalhes, em fecharDetalhesMedia().
+    definirVisibilidadeCategoryBar(false);
+
     try {
         const action = tipo === 'series' ? 'get_series_info' : 'get_vod_info';
         const data = await fetchAPI(action, tipo === 'series' ? `&series_id=${id}` : `&vod_id=${id}`);
@@ -677,6 +704,9 @@ async function abrirDetalhesMedia(id, tipo) {
 
 window.fecharDetalhesMedia = function() {
     mediaAtivaObj = null;
+    // Restaura a barra de categorias só se fizer sentido na aba atual
+    // (Filmes/Séries). Em Início/Ao Vivo ela continua escondida.
+    definirVisibilidadeCategoryBar(abaAtiva === 'vod' || abaAtiva === 'series');
     if (abaAtiva === 'home') switchView('home-view'); else switchView('grid-view');
 }
 
