@@ -33,10 +33,16 @@ ALLOWED_PATH_PARTS = ("/player_api.php", "/live/", "/movie/", "/series/", "/hls/
 client = httpx.AsyncClient(timeout=60.0, follow_redirects=True)
 
 # Tamanho máximo de cada pedaço de vídeo repassado por execução (ver uso mais
-# abaixo). 6 MB dá vários segundos de vídeo de sobra pro player continuar
-# tocando enquanto pede o próximo pedaço, mas termina rápido o bastante pra
-# nunca chegar perto do limite de duração de uma função serverless.
-MAX_CHUNK_BYTES = 6 * 1024 * 1024
+# abaixo). Cada pedaço passa pelo caminho: navegador → Vercel → provedor IPTV
+# → Vercel → navegador. Pedaços PEQUENOS demais multiplicam quanto isso se
+# repete por minuto de vídeo — se esse "vai e volta" demorar mais que o tempo
+# que o player leva pra consumir o pedaço anterior, o buffer esvazia e trava,
+# MESMO com internet boa (era exatamente o que estava acontecendo com 6 MB).
+# 18 MB dá bem mais folga de buffer (mais segundos de vídeo por pedaço, logo
+# menos requisições no total), e mesmo num pior caso de servidor de origem
+# lento (~500 KB/s) ainda termina em ~36s — com boa margem antes do limite de
+# 60s configurado no vercel.json.
+MAX_CHUNK_BYTES = 18 * 1024 * 1024
 
 
 def _parse_range_header(range_header):

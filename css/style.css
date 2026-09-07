@@ -239,69 +239,6 @@ body {
 .card-title { font-size: 14px; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--text-muted); line-height: 1.4; transition: 0.2s;}
 .media-card:hover .card-title { color: white; }
 
-/* ================== TILES DE CATEGORIA (Filmes / Séries / Canais na Home) ================== */
-.category-tile { min-width: 210px; max-width: 210px; scroll-snap-align: start; cursor: pointer; }
-.category-tile-thumbs {
-    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 3px;
-    width: 100%; aspect-ratio: 1 / 1; border-radius: 18px; overflow: hidden;
-    background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.3); transition: 0.3s ease;
-}
-.category-tile-thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; background: rgba(255,255,255,0.05); }
-/* Quando a categoria tem menos de 4 itens, os quadradinhos existentes ocupam mais espaço
-   em vez de deixar buracos vazios na grade. */
-.category-tile-thumbs.thumbs-1 img { grid-column: 1 / span 2; grid-row: 1 / span 2; }
-.category-tile-thumbs.thumbs-2 img { grid-row: 1 / span 2; }
-.category-tile-thumbs.thumbs-3 img:first-child { grid-row: 1 / span 2; }
-.category-tile:hover .category-tile-thumbs { border-color: rgba(255,255,255,0.3); box-shadow: 0 20px 40px rgba(0,0,0,0.5); transform: translateY(-4px); }
-.category-tile-label { display: flex; align-items: center; justify-content: space-between; padding: 12px 4px 0 4px; gap: 8px; }
-.category-tile-label span { font-size: 15px; font-weight: 700; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.category-tile-label svg { width: 16px; height: 16px; fill: var(--text-muted); flex-shrink: 0; transition: 0.2s ease; }
-.category-tile:hover .category-tile-label svg { fill: white; transform: translateX(3px); }
-
-/* ================== SEÇÃO "DESTAQUES DO APP" ================== */
-.featured-section {
-    position: relative; margin: 0 60px 40px 60px; border-radius: 24px; overflow: hidden;
-    padding: 50px; min-height: 460px; display: flex; align-items: stretch;
-    border: 1px solid var(--border-glass); background: #111;
-}
-.featured-bg {
-    position: absolute; inset: 0; background-size: cover; background-position: center;
-    transform: scale(1.05); z-index: 0; opacity: 0.55; transition: opacity 0.6s ease, background-image 0.6s ease;
-}
-.featured-overlay {
-    position: absolute; inset: 0; z-index: 1;
-    background: linear-gradient(100deg, rgba(10,10,12,0.97) 28%, rgba(10,10,12,0.8) 55%, rgba(10,10,12,0.35) 100%);
-}
-.featured-inner { position: relative; z-index: 2; display: flex; width: 100%; gap: 45px; align-items: center; }
-.featured-main { flex: 0 0 42%; max-width: 42%; display: flex; flex-direction: column; }
-.featured-eyebrow { font-size: 15px; font-weight: 800; color: white; }
-.featured-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
-.featured-badge-today {
-    display: inline-flex; align-self: flex-start; background: var(--accent); color: white; font-size: 12px;
-    font-weight: 700; padding: 5px 14px; border-radius: 20px; margin-bottom: 14px;
-}
-.featured-title { font-size: 34px; font-weight: 900; color: white; margin: 0 0 10px 0; line-height: 1.15; letter-spacing: -0.5px; cursor: pointer; }
-.featured-meta { font-size: 14px; color: var(--star-active); font-weight: 700; margin-bottom: 14px; min-height: 18px; }
-.featured-desc {
-    font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 24px;
-    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-}
-.featured-grid { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-content: center; }
-.featured-mini-card {
-    position: relative; border-radius: 14px; overflow: hidden; cursor: pointer; aspect-ratio: 16 / 10.5;
-    background: #000; transition: 0.3s ease; border: 1px solid var(--border-glass);
-}
-.featured-mini-card:hover { transform: translateY(-5px); border-color: rgba(255,255,255,0.3); }
-.featured-mini-card img { width: 100%; height: 100%; object-fit: cover; }
-.featured-mini-info {
-    position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 12px;
-    background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); display: flex; flex-direction: column; gap: 3px;
-}
-.featured-mini-title { font-size: 13px; font-weight: 700; color: white; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.featured-mini-meta { font-size: 11px; color: #d1d1d6; display: flex; gap: 6px; align-items: center; }
-.featured-mini-rating { color: var(--star-active); font-weight: 700; }
-
 /* ================== GRID E LISTAS ================== */
 #media-grid {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; row-gap: 40px;
@@ -680,22 +617,6 @@ body {
     .episode-row-card { flex-direction: column; }
     .ep-row-img { width: 100%; aspect-ratio: 16/9; min-width: 100%;}
     .ep-row-info { padding: 15px; }
-
-    /* 10. TILES DE CATEGORIA */
-    .category-tile { min-width: 130px; max-width: 130px; }
-    .category-tile-thumbs { border-radius: 12px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
-    .category-tile-label { padding: 8px 2px 0 2px; }
-    .category-tile-label span { font-size: 13px; }
-
-    /* 11. SEÇÃO "DESTAQUES DO APP" — empilha ao invés do layout lado a lado do desktop */
-    .featured-section { margin: 0 20px 30px 20px; padding: 25px; min-height: 0; border-radius: 18px; }
-    .featured-inner { flex-direction: column; gap: 22px; align-items: stretch; }
-    .featured-main { flex: none; max-width: 100%; }
-    .featured-title { font-size: 26px; }
-    .featured-desc { -webkit-line-clamp: 4; }
-    .featured-grid { grid-template-columns: repeat(2, 1fr); width: 100%; }
-    .featured-section .md-actions { flex-wrap: nowrap; }
-    .featured-section .btn-play-main { width: auto; flex: 1; justify-content: center; }
 }
 /* Animação do ícone de "Atualizar Catálogo" enquanto busca dados novos */
 @keyframes spin {

@@ -25,21 +25,25 @@ let favoritos = savedFavs;
 let historicoAssistidos = JSON.parse(localStorage.getItem('iptv_api_history')) || {};
 let videoEmReproducao = null;
 
-// --- EPISÓDIOS/FILMES JÁ ASSISTIDOS POR COMPLETO ---
-// `historicoAssistidos` guarda o PONTO onde parar no meio de um vídeo, e é apagado assim
-// que a pessoa termina de assistir (>95%) — ótimo pra "continuar assistindo", mas isso
-// também apaga o único rastro de que aquele episódio já foi visto. Por isso um episódio
-// assistido inteiro não aparecia marcado como visto em lugar nenhum. Esta é uma segunda
-// lista, permanente (nunca é apagada), só pra saber "isso aqui eu já vi".
-const WATCHED_KEY = 'iptv_watched_v1';
-let assistidosCompletos = {};
-try { assistidosCompletos = JSON.parse(localStorage.getItem(WATCHED_KEY)) || {}; } catch (e) { assistidosCompletos = {}; }
+// ================== EPISÓDIOS/FILMES JÁ ASSISTIDOS POR COMPLETO ==================
+// `historicoAssistidos` guarda só o PROGRESSO de quem parou no meio (usado pra
+// "Continuar Assistindo"), e é APAGADO de lá quando o vídeo passa de 95% —
+// por isso quem assiste um episódio inteiro nunca aparecia marcado em lugar
+// nenhum. Este é um registro À PARTE, que só cresce (nunca é removido), usado
+// exclusivamente pra mostrar "✓ Assistido" na lista de episódios.
+let episodiosCompletos = new Set();
+try {
+    const salvos = JSON.parse(localStorage.getItem('iptv_api_completos')) || [];
+    episodiosCompletos = new Set(salvos.map(String));
+} catch (e) { episodiosCompletos = new Set(); }
 
-function marcarComoAssistido(id) {
-    if (assistidosCompletos[id]) return;
-    assistidosCompletos[id] = Date.now();
-    try { localStorage.setItem(WATCHED_KEY, JSON.stringify(assistidosCompletos)); } catch (e) { /* ignora se o storage estiver cheio */ }
+function marcarComoCompleto(id) {
+    if (id === undefined || id === null) return;
+    episodiosCompletos.add(String(id));
+    try { localStorage.setItem('iptv_api_completos', JSON.stringify(Array.from(episodiosCompletos))); } catch (e) { /* storage cheio, ignora */ }
 }
+window.marcarComoCompleto = marcarComoCompleto;
+window.episodiosCompletos = episodiosCompletos;
 
 // Fallbacks de Imagem
 //

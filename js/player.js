@@ -38,8 +38,8 @@ function forcarFechamentoPlayer() {
         document.getElementById('player-wrapper').style.display = 'none';
         videoEmReproducao = null;
         esconderErroPlayer();
-        esconderProximoEpisodio();
         pararWatchdogTravamento();
+        esconderBotaoProximoEpisodio();
     }
     if (livePlayer) livePlayer.pause();
 }
@@ -64,77 +64,6 @@ function formatarTempo(segundos) {
     const h = Math.floor(segundos / 3600);
     return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
 }
-
-// ================== "PRÓXIMO EPISÓDIO" NOS ÚLTIMOS 10 SEGUNDOS ==================
-// `videoEmReproducao.proximo` (montado em ui.js/montarMetadadosEpisodio) já traz tudo que
-// precisamos sobre o episódio seguinte — não precisamos consultar mais nada aqui.
-let proximoEpisodioDispensado = false;
-let idProximoExibido = null; // evita recriar o card a cada "timeupdate" (que dispara várias vezes/s)
-
-function esconderProximoEpisodio() {
-    const el = document.getElementById('player-next-episode');
-    if (el) el.remove();
-    idProximoExibido = null;
-}
-
-function mostrarProximoEpisodio(proximo, segundosRestantes) {
-    if (idProximoExibido === proximo.id) {
-        // Já está na tela — só atualiza a contagem regressiva
-        const contagem = document.getElementById('next-ep-countdown');
-        if (contagem) contagem.textContent = Math.ceil(segundosRestantes);
-        return;
-    }
-    esconderProximoEpisodio();
-    idProximoExibido = proximo.id;
-
-    const el = document.createElement('div');
-    el.id = 'player-next-episode';
-    el.innerHTML = `
-        <button class="next-ep-close" title="Cancelar">&times;</button>
-        <div class="next-ep-body">
-            <img src="${proximo.poster || ''}" onerror="this.style.display='none'" alt="">
-            <div class="next-ep-info">
-                <span class="next-ep-label">A seguir em <span id="next-ep-countdown">${Math.ceil(segundosRestantes)}</span>s</span>
-                <span class="next-ep-title">${proximo.name}</span>
-            </div>
-            <div class="next-ep-play">
-                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            </div>
-        </div>
-    `;
-    el.querySelector('.next-ep-close').onclick = (e) => {
-        e.stopPropagation();
-        proximoEpisodioDispensado = true;
-        esconderProximoEpisodio();
-    };
-    el.querySelector('.next-ep-body').onclick = () => {
-        abrirPlayer(proximo.url, proximo);
-    };
-    document.getElementById('player-wrapper').appendChild(el);
-}
-
-player.on('timeupdate', () => {
-    if (!videoEmReproducao || !videoEmReproducao.proximo || proximoEpisodioDispensado) return;
-    const duration = player.duration();
-    if (!duration || !isFinite(duration)) return;
-    const restante = duration - player.currentTime();
-    if (restante <= 10 && restante > 0.3) {
-        mostrarProximoEpisodio(videoEmReproducao.proximo, restante);
-    } else if (restante > 10 && idProximoExibido) {
-        // Usuário arrastou a barra de progresso de volta — some com o card
-        esconderProximoEpisodio();
-    }
-});
-
-// Ao terminar o episódio de verdade, avança sozinho pro próximo (a pessoa já teve os
-// últimos 10s pra cancelar clicando no "x" do card, se não quisesse isso).
-player.on('ended', () => {
-    if (videoEmReproducao) marcarComoAssistido(videoEmReproducao.id);
-    if (videoEmReproducao && videoEmReproducao.proximo && !proximoEpisodioDispensado) {
-        const proximo = videoEmReproducao.proximo;
-        abrirPlayer(proximo.url, proximo);
-    }
-});
 
 let loadingTimeoutId = null;
 
@@ -200,17 +129,13 @@ function abrirPlayer(url, metadados = null, ehTentativaAutomatica = false) {
     // preserva a contagem pra não tentar pra sempre em loop infinito.
     if (!ehTentativaAutomatica) tentativasAutoRecuperacao = 0;
 
-    // Cada vídeo novo começa "sem aviso dispensado" e sem nenhum card de
-    // próximo episódio da reprodução anterior grudado na tela.
-    proximoEpisodioDispensado = false;
-    esconderProximoEpisodio();
-
     videoEmReproducao = metadados; 
     lastViewBeforePlayer = document.querySelector('.view-section.active').id;
     const wrapper = document.getElementById('player-wrapper');
     wrapper.style.display = 'flex';
 
     esconderErroPlayer();
+    esconderBotaoProximoEpisodio();
     mostrarCarregandoPlayer(true);
     clearTimeout(loadingTimeoutId);
     
@@ -347,7 +272,10 @@ player.on('timeupdate', () => {
         const percent = currentTime / duration;
         if (percent > 0.95) {
             progressoPendente = { id: videoEmReproducao.id, dados: null };
-            marcarComoAssistido(videoEmReproducao.id);
+            // Registra que esse episódio/filme foi assistido até o fim — ao
+            // contrário do progresso acima (que é apagado), este registro fica
+            // pra sempre, e é o que faz aparecer "✓ Assistido" na lista.
+            marcarComoCompleto(videoEmReproducao.id);
         } else {
             progressoPendente = { 
                 id: videoEmReproducao.id,
@@ -362,7 +290,65 @@ player.on('timeupdate', () => {
         }
         persistirHistorico(false);
     }
+
+    // ============ BOTÃO "PRÓXIMO EPISÓDIO" (últimos 10 segundos) ============
+    if (videoEmReproducao.aba === 'series' && Array.isArray(videoEmReproducao.listaEpisodios)) {
+        const proximo = videoEmReproducao.listaEpisodios[videoEmReproducao.indiceEpisodio + 1];
+        const faltam = duration ? duration - currentTime : Infinity;
+        if (proximo && duration && faltam <= 10) {
+            mostrarBotaoProximoEpisodio(proximo, videoEmReproducao.listaEpisodios, videoEmReproducao.indiceEpisodio + 1);
+        } else {
+            esconderBotaoProximoEpisodio();
+        }
+    }
 });
+
+// Se o vídeo chegar ao fim naturalmente (sem o usuário ter pausado antes),
+// garante que o episódio é marcado como completo mesmo que o timeupdate não
+// tenha rodado bem na última fração de segundo.
+player.on('ended', () => {
+    if (videoEmReproducao && videoEmReproducao.aba !== 'live') {
+        marcarComoCompleto(videoEmReproducao.id);
+        progressoPendente = { id: videoEmReproducao.id, dados: null };
+        persistirHistorico(true);
+    }
+});
+
+// Cria (ou atualiza) o botão flutuante de "Próximo episódio" no canto inferior
+// direito do player. `proximo` é o objeto { id, name, url, temporada } vindo
+// da lista achatada de episódios montada em abrirDetalhesMedia (ui.js).
+function mostrarBotaoProximoEpisodio(proximo, listaCompleta, indiceProximo) {
+    let btn = document.getElementById('btn-proximo-episodio');
+    if (btn) return; // já está visível, não recria
+    btn = document.createElement('button');
+    btn.id = 'btn-proximo-episodio';
+    btn.className = 'btn-proximo-episodio';
+    btn.innerHTML = `
+        <span class="prox-ep-textos">
+            <span class="prox-ep-label">Próximo episódio</span>
+            <span class="prox-ep-nome">${proximo.name || ''}</span>
+        </span>
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+    `;
+    btn.onclick = () => {
+        esconderBotaoProximoEpisodio();
+        abrirPlayer(proximo.url, {
+            id: proximo.id,
+            name: proximo.name,
+            url: proximo.url,
+            aba: 'series',
+            listaEpisodios: listaCompleta,
+            indiceEpisodio: indiceProximo
+        });
+    };
+    document.getElementById('player-wrapper').appendChild(btn);
+}
+
+function esconderBotaoProximoEpisodio() {
+    const btn = document.getElementById('btn-proximo-episodio');
+    if (btn) btn.remove();
+}
+window.esconderBotaoProximoEpisodio = esconderBotaoProximoEpisodio;
 
 // Garante que o progresso mais recente não se perde ao pausar, trocar de vídeo ou fechar a aba
 player.on('pause', () => persistirHistorico(true));
@@ -374,8 +360,8 @@ document.getElementById('btn-fechar-player').addEventListener('click', () => {
     document.getElementById('player-wrapper').style.display = 'none'; 
     videoEmReproducao = null;
     esconderErroPlayer();
-    esconderProximoEpisodio();
     pararWatchdogTravamento();
+    esconderBotaoProximoEpisodio();
     
     if (lastViewBeforePlayer === 'home-view') {
         renderizarHome(); // chamando função de ui.js
