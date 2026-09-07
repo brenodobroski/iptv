@@ -219,10 +219,30 @@ function renderizarHome() {
     const homeContent = document.getElementById('home-content');
     homeContent.innerHTML = '<div class="home-content-wrapper"></div>';
     const wrapper = homeContent.querySelector('.home-content-wrapper');
-    
+
+    // ================== CATEGORIAS (Filmes / Séries / Canais) ==================
+    // Inspirado na landing page de referência: cada "tile" mostra uma prévia em
+    // grade 2x2 dos pôsteres/capas daquela categoria, ao invés de só o nome.
+    const categoriasFilmes = montarCategoriasComThumbs(cats.vod, db.vod, 'vod');
+    if (categoriasFilmes.length > 0) criarFileiraCategorias(wrapper, 'Categorias de Filmes', categoriasFilmes, 'vod');
+
+    const categoriasSeries = montarCategoriasComThumbs(cats.series, db.series, 'series');
+    if (categoriasSeries.length > 0) criarFileiraCategorias(wrapper, 'Categorias de Séries', categoriasSeries, 'series');
+
+    const categoriasCanais = montarCategoriasComThumbs(cats.live, db.live, 'live');
+    if (categoriasCanais.length > 0) criarFileiraCategorias(wrapper, 'Categorias de Canais', categoriasCanais, 'live');
+
+    // ================== DESTAQUES DO APP ==================
+    criarSecaoDestaque(wrapper);
+
+    // ================== LANÇAMENTOS (Filmes e Séries) ==================
     let lancamentoCat = cats.vod.find(c => c.category_name.toLowerCase().includes('lançamento') || c.category_name.toLowerCase().includes('novo'));
     let lancamentos = lancamentoCat ? db.vod.filter(s => s.category_id == lancamentoCat.category_id).slice(0, 10) : db.vod.slice(0, 10);
-    if (lancamentos.length > 0) criarFileira(wrapper, 'Top Lançamentos da Semana', lancamentos, 'vod', false, false, true); 
+    if (lancamentos.length > 0) criarFileira(wrapper, 'Lançamentos - Filmes', lancamentos, 'vod', false, false, true);
+
+    let lancamentoCatSeries = cats.series.find(c => c.category_name.toLowerCase().includes('lançamento') || c.category_name.toLowerCase().includes('novo'));
+    let lancamentosSeries = lancamentoCatSeries ? db.series.filter(s => s.category_id == lancamentoCatSeries.category_id).slice(0, 10) : db.series.slice(0, 10);
+    if (lancamentosSeries.length > 0) criarFileira(wrapper, 'Lançamentos - Séries', lancamentosSeries, 'series', false, false, true);
     
     const favCanais = db.live.filter(s => favoritos.live.includes(s.stream_id));
     if (favCanais.length > 0) criarFileira(wrapper, 'Seus Canais Favoritos', favCanais, 'live', false, false, false); 
@@ -232,6 +252,236 @@ function renderizarHome() {
     
     const histSeries = Object.values(historicoAssistidos).filter(i => i.aba === 'series').sort((a,b) => b.timestamp - a.timestamp);
     if (histSeries.length > 0) criarFileira(wrapper, 'Continuar Assistindo (Séries)', histSeries, 'series', false, true, false); 
+
+    // ================== CANAIS DE ESPORTES ==================
+    // A referência tinha seções dedicadas de "Champions League" e "Notícias" — não fazem
+    // sentido aqui (não temos partidas/notícias, só canais). Resumimos as duas num único
+    // carrossel com os canais AO VIVO cujas categorias soem esportivas.
+    const catsEsportivasIds = cats.live.filter(c => ehCategoriaDeEsportes(c.category_name)).map(c => c.category_id);
+    const canaisEsportes = db.live.filter(ch => catsEsportivasIds.includes(ch.category_id));
+    if (canaisEsportes.length > 0) criarFileira(wrapper, 'Canais de Esportes', canaisEsportes.slice(0, 20), 'live', false, false, false);
+}
+
+// Detecta categorias de canais ao vivo que são de esportes, por nome (funciona com o
+// nome que a maioria dos provedores Xtream usa: "ESPORTES", "SPORTS", "FUTEBOL", etc.)
+function ehCategoriaDeEsportes(nomeCategoria) {
+    if (!nomeCategoria) return false;
+    const n = nomeCategoria.toLowerCase();
+    const termos = [
+        'esport', 'sport', 'futebol', 'football', 'espn', 'premiere', 'combate',
+        'ufc', 'sportv', 'bandsports', 'band sports', 'nba', 'nfl', 'fight',
+        'telefoot', 'libertadores', 'brasileirão', 'brasileirao', 'fifa', 'uefa'
+    ];
+    return termos.some(t => n.includes(t));
+}
+
+// Monta, pra cada categoria com pelo menos 1 item, até 4 imagens de prévia — usadas
+// nos "tiles" de categoria da Home. Categorias com mais itens vêm primeiro (tendem a
+// ter os 4 quadradinhos preenchidos e ser mais relevantes pra pessoa explorar).
+function montarCategoriasComThumbs(categorias, itensDb, tipoAba, maxCategorias = 14) {
+    const resultado = [];
+    categorias.forEach(cat => {
+        const itensDaCat = itensDb.filter(i => String(i.category_id) === String(cat.category_id));
+        if (itensDaCat.length === 0) return;
+        const fallback = getFallbackSvg(tipoAba === 'live' ? 'TV' : 'Poster');
+        const thumbs = itensDaCat.slice(0, 4).map(i => {
+            const img = i.stream_icon || i.cover;
+            return (img && !imagensQuebradas.has(img)) ? img : fallback;
+        });
+        resultado.push({ id: cat.category_id, nome: cat.category_name, thumbs, _qtd: itensDaCat.length });
+    });
+    resultado.sort((a, b) => b._qtd - a._qtd);
+    return resultado.slice(0, maxCategorias);
+}
+
+// Fileira de "tiles" de categoria (usa a mesma estrutura de scroller com setas das
+// fileiras normais, só troca o conteúdo de cada item por um preview 2x2 + nome).
+function criarFileiraCategorias(container, titulo, categoriasComThumbs, tipoAba) {
+    if (categoriasComThumbs.length === 0) return;
+
+    const rowWrapper = document.createElement('div');
+    rowWrapper.className = 'home-row';
+    rowWrapper.innerHTML = `
+        <div class="home-row-header">
+            <h3>${titulo}</h3>
+        </div>
+        <div class="scroller-container">
+            <button class="scroll-btn left-btn hidden-btn">
+                <svg viewBox="0 0 24 24"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>
+            </button>
+            <div class="row-scroller"></div>
+            <button class="scroll-btn right-btn hidden-btn">
+                <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+            </button>
+        </div>
+    `;
+
+    const scroller = rowWrapper.querySelector('.row-scroller');
+    const btnLeft = rowWrapper.querySelector('.left-btn');
+    const btnRight = rowWrapper.querySelector('.right-btn');
+    btnLeft.onclick = () => scroller.scrollBy({ left: -600, behavior: 'smooth' });
+    btnRight.onclick = () => scroller.scrollBy({ left: 600, behavior: 'smooth' });
+
+    categoriasComThumbs.forEach(catInfo => {
+        const tile = document.createElement('div');
+        tile.className = 'category-tile';
+        const thumbsHtml = catInfo.thumbs.map(src => `<img src="${src}" loading="lazy" onerror="this.style.visibility='hidden'">`).join('');
+        tile.innerHTML = `
+            <div class="category-tile-thumbs thumbs-${catInfo.thumbs.length}">${thumbsHtml}</div>
+            <div class="category-tile-label">
+                <span>${catInfo.nome}</span>
+                <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+            </div>
+        `;
+        tile.onclick = () => abrirCategoriaHome(tipoAba, catInfo.id);
+        scroller.appendChild(tile);
+    });
+    container.appendChild(rowWrapper);
+
+    const updateArrows = () => {
+        if (scroller.scrollWidth <= scroller.clientWidth) {
+            btnLeft.classList.add('hidden-btn'); btnRight.classList.add('hidden-btn');
+        } else {
+            if (scroller.scrollLeft <= 10) btnLeft.classList.add('hidden-btn'); else btnLeft.classList.remove('hidden-btn');
+            if (scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 10) btnRight.classList.add('hidden-btn'); else btnRight.classList.remove('hidden-btn');
+        }
+    };
+    setTimeout(updateArrows, 150);
+    scroller.addEventListener('scroll', updateArrows);
+    window.addEventListener('resize', updateArrows);
+}
+
+// Vai direto pra uma categoria específica de Filmes/Séries/Canais a partir de um clique
+// na Home — reaproveita a lógica que já existe pra troca de aba e seleção de categoria
+// (inclusive o auto-seleciona-por-currentCatId já embutido em renderizarCategoriasLista).
+function abrirCategoriaHome(tipoAba, catId) {
+    forcarFechamentoPlayer();
+    document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
+    const navBtn = document.querySelector(`.nav-link[data-tab="${tipoAba}"]`);
+    if (navBtn) navBtn.classList.add('active');
+    abaAtiva = tipoAba;
+    document.getElementById('search-box').value = '';
+    document.getElementById('grid-header').style.display = 'none';
+    currentCatId = catId;
+
+    if (tipoAba === 'live') {
+        definirVisibilidadeCategoryBar(false);
+        renderizarCategoriasLiveSidebar();
+        renderizarGrade(db.live.filter(item => String(item.category_id) === String(catId)), 'live');
+        const li = document.querySelector(`#live-category-list li[data-id="${catId}"]`);
+        if (li) {
+            document.querySelectorAll('#live-category-list li').forEach(el => el.classList.remove('active'));
+            li.classList.add('active');
+        }
+    } else {
+        definirVisibilidadeCategoryBar(true);
+        renderizarCategoriasLista(cats[tipoAba]);
+    }
+    switchView('grid-view');
+}
+
+// ================== SEÇÃO "DESTAQUES DO APP" ==================
+// Uma peça grande (com sinopse/nota, ao estilo do banner) + uma grade de miniaturas ao
+// lado, puxando dos lançamentos de filmes e séries — igual à seção "Featured" da
+// referência que o usuário mandou.
+function criarSecaoDestaque(container) {
+    let lancamentoCatVod = cats.vod.find(c => c.category_name.toLowerCase().includes('lançamento') || c.category_name.toLowerCase().includes('novo'));
+    let poolFilmes = (lancamentoCatVod ? db.vod.filter(s => s.category_id == lancamentoCatVod.category_id) : db.vod).slice(0, 5).map(i => ({ ...i, _tipo: 'vod' }));
+
+    let lancamentoCatSeries = cats.series.find(c => c.category_name.toLowerCase().includes('lançamento') || c.category_name.toLowerCase().includes('novo'));
+    let poolSeries = (lancamentoCatSeries ? db.series.filter(s => s.category_id == lancamentoCatSeries.category_id) : db.series).slice(0, 5).map(i => ({ ...i, _tipo: 'series' }));
+
+    // Intercala filme/série pra não ficar tudo de um tipo só nem no destaque principal, nem na grade
+    let pool = [];
+    for (let i = 0; i < Math.max(poolFilmes.length, poolSeries.length); i++) {
+        if (poolFilmes[i]) pool.push(poolFilmes[i]);
+        if (poolSeries[i]) pool.push(poolSeries[i]);
+    }
+    if (pool.length === 0) return;
+
+    const destaque = pool[0];
+    const grade = pool.slice(1, 7);
+    const idDestaque = destaque._tipo === 'series' ? destaque.series_id : destaque.stream_id;
+    const posterDestaque = destaque.stream_icon || destaque.cover || getFallbackSvg('Mídia');
+
+    const secao = document.createElement('div');
+    secao.className = 'featured-section';
+    secao.innerHTML = `
+        <div class="featured-bg" style="background-image:url('${posterDestaque}')"></div>
+        <div class="featured-overlay"></div>
+        <div class="featured-inner">
+            <div class="featured-main">
+                <span class="featured-eyebrow">Destaques no App</span>
+                <span class="featured-sub">Os melhores pra você hoje</span>
+                <span class="featured-badge-today">#1 Hoje</span>
+                <h2 class="featured-title">${destaque.name}</h2>
+                <div class="featured-meta">${(tipoParaLabel(destaque._tipo, catMaps) )}</div>
+                <p class="featured-desc">Carregando sinopse...</p>
+                <div class="md-actions">
+                    <button class="btn-play-main featured-play-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right:5px;"><path d="M8 5v14l11-7z"/></svg> Assistir Agora
+                    </button>
+                    <button class="btn-fav-main featured-fav-btn ${favoritos[destaque._tipo] && favoritos[destaque._tipo].includes(idDestaque) ? 'is-fav' : ''}" title="Favoritar">
+                        <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="featured-grid"></div>
+        </div>
+    `;
+
+    secao.querySelector('.featured-main').addEventListener('click', (e) => {
+        if (e.target.closest('.featured-fav-btn')) return;
+        abrirDetalhesMedia(idDestaque, destaque._tipo);
+    });
+    secao.querySelector('.featured-fav-btn').addEventListener('click', (e) => toggleFav(e, idDestaque, destaque._tipo));
+
+    const gridEl = secao.querySelector('.featured-grid');
+    grade.forEach(item => {
+        const id = item._tipo === 'series' ? item.series_id : item.stream_id;
+        const poster = item.stream_icon || item.cover || getFallbackSvg('Mídia');
+        const card = document.createElement('div');
+        card.className = 'featured-mini-card';
+        card.innerHTML = `
+            <img src="${poster}" loading="lazy" onerror="this.src='${getFallbackSvg('Mídia')}'">
+            <div class="featured-mini-info">
+                <span class="featured-mini-title">${item.name}</span>
+                <span class="featured-mini-meta">
+                    <span class="featured-mini-rating" style="display:none;">★ <b></b></span>
+                    <span class="featured-mini-genre">${tipoParaLabel(item._tipo, catMaps, item.category_id)}</span>
+                </span>
+            </div>
+        `;
+        card.onclick = () => abrirDetalhesMedia(id, item._tipo);
+        gridEl.appendChild(card);
+
+        buscarTMDB(item.name, item._tipo).then(tmdb => {
+            if (!tmdb || !tmdb.nota) return;
+            const ratingEl = card.querySelector('.featured-mini-rating');
+            ratingEl.style.display = 'inline';
+            ratingEl.querySelector('b').textContent = tmdb.nota;
+        });
+    });
+
+    container.appendChild(secao);
+
+    // Enriquecimento assíncrono com dados do TMDB (backdrop, sinopse, título, nota/ano)
+    buscarTMDB(destaque.name, destaque._tipo).then(tmdb => {
+        if (!tmdb) return;
+        if (tmdb.backdrop) secao.querySelector('.featured-bg').style.backgroundImage = `url('${tmdb.backdrop}')`;
+        if (tmdb.titulo) secao.querySelector('.featured-title').textContent = tmdb.titulo;
+        if (tmdb.sinopse) secao.querySelector('.featured-desc').textContent = tmdb.sinopse;
+        const metaParts = [];
+        if (tmdb.nota) metaParts.push(`★ ${tmdb.nota}`);
+        if (tmdb.ano) metaParts.push(tmdb.ano);
+        if (metaParts.length) secao.querySelector('.featured-meta').textContent = metaParts.join(' • ');
+    });
+}
+
+// Pequeno helper só pra mostrar "Filme", "Série" ou o nome da categoria como legenda
+function tipoParaLabel(tipo, catMapsRef, categoryId) {
+    if (categoryId !== undefined && catMapsRef[tipo] && catMapsRef[tipo][categoryId]) return catMapsRef[tipo][categoryId];
+    return tipo === 'series' ? 'Série' : 'Filme';
 }
 
 function criarFileira(container, titulo, itens, tipoAba, isEvent = false, isHistory = false, isNumbered = false) {
