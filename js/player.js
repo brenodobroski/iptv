@@ -435,13 +435,40 @@ async function carregarEPGCanal(streamId) {
     }
 }
 
-window.buscarEPGSilencioso = async function(streamId) {
+// ================== FILA DE BUSCA DE EPG (evita 429 "Too Many Requests") ==================
+// Quando a lista Ao Vivo renderiza e várias linhas já aparecem na tela de uma vez, o
+// IntersectionObserver do ui.js chamava buscarEPGSilencioso() pra CADA UMA delas ao mesmo
+// tempo — 15, 20, 30 chamadas simultâneas pro provedor. Muitos provedores Xtream (ainda
+// mais os mais baratos/revendidos) têm um limite de requisições por segundo BEM baixo, e
+// respondem 429 quando isso acontece. Essa fila garante no máximo algumas chamadas em
+// paralelo, e se o provedor mesmo assim mandar um 429, dá uma pausa curta antes de tentar
+// as próximas — em vez de continuar martelando e piorar o bloqueio.
+const filaEpg = [];
+let epgEmAndamento = 0;
+const EPG_MAX_CONCORRENTE = 3;
+let epgPausadoAte = 0;
+
+function processarFilaEpg() {
+    if (Date.now() < epgPausadoAte) {
+        setTimeout(processarFilaEpg, epgPausadoAte - Date.now() + 50);
+        return;
+    }
+    while (epgEmAndamento < EPG_MAX_CONCORRENTE && filaEpg.length > 0) {
+        const streamId = filaEpg.shift();
+        epgEmAndamento++;
+        executarBuscaEpg(streamId).finally(() => {
+            epgEmAndamento--;
+            processarFilaEpg();
+        });
+    }
+}
+
+async function executarBuscaEpg(streamId) {
+    const miniProg = document.getElementById(`prog-mini-${streamId}`);
     try {
-        // Removido o &limit=1 que causava o erro na API do seu servidor
         const data = await fetchAPI('get_short_epg', `&stream_id=${streamId}`);
-        const miniProg = document.getElementById(`prog-mini-${streamId}`);
         if (!miniProg) return;
-        
+
         if (data && data.epg_listings && data.epg_listings.length > 0) {
             const prog = data.epg_listings[0];
             const title = window.decodeBase64EPG(prog.title);
@@ -452,9 +479,20 @@ window.buscarEPGSilencioso = async function(streamId) {
         } else {
             miniProg.textContent = "Programação Indisponível";
         }
-    } catch(e) {
-        const miniProg = document.getElementById(`prog-mini-${streamId}`);
-        // Se a API falhar, mostra algo mais profissional que "Sem informação"
+    } catch (e) {
+        if (e && e.status === 429) {
+            // O provedor pediu pra parar um pouco — pausa a fila toda por 5s e devolve
+            // esse canal pra tentar de novo depois, em vez de descartar o pedido.
+            epgPausadoAte = Date.now() + 5000;
+            filaEpg.push(streamId);
+            return;
+        }
         if (miniProg) miniProg.textContent = "Programação Indisponível";
     }
+}
+
+window.buscarEPGSilencioso = function(streamId) {
+    if (filaEpg.includes(streamId)) return;
+    filaEpg.push(streamId);
+    processarFilaEpg();
 };

@@ -158,9 +158,15 @@ function setupBanners() {
         
         const cover = item.cover || item.stream_icon || getFallbackSvg('Mídia');
         
-        // Removemos a sinopse para ficar super limpo e focamos no título gigante e metadados
+        // Removemos a sinopse para ficar super limpo e focamos no título gigante e metadados.
+        // --hero-backdrop/--hero-poster: guardamos os DOIS num custom property cada, porque o
+        // CSS decide qual usar dependendo do tamanho de tela (ver .hero-bg no style.css). Uma
+        // imagem de "backdrop" (paisagem, 16:9) faz sentido no desktop, mas num hero alto e
+        // estreito de celular ela precisa ser tão ampliada pra cobrir que vira um zoom horrível
+        // numa fatia aleatória da imagem. O pôster (retrato, 2:3) encaixa muito melhor nessa
+        // proporção e é o que apps de streaming usam no hero mobile.
         slide.innerHTML = `
-            <div class="hero-bg" style="background-image: url('${cover}');"></div>
+            <div class="hero-bg" style="--hero-backdrop: url('${cover}'); --hero-poster: url('${cover}');"></div>
             <div class="hero-overlay-gradient"></div>
             <div class="hero-content">
                 <div class="hero-title-container">
@@ -185,9 +191,9 @@ function setupBanners() {
                 const el = document.getElementById(slideId);
                 if(!el) return;
                 
-                if(tmdb.backdrop) {
-                    el.querySelector('.hero-bg').style.backgroundImage = `url('${tmdb.backdrop}')`;
-                }
+                const bgEl = el.querySelector('.hero-bg');
+                if (tmdb.backdrop) bgEl.style.setProperty('--hero-backdrop', `url('${tmdb.backdrop}')`);
+                if (tmdb.poster) bgEl.style.setProperty('--hero-poster', `url('${tmdb.poster}')`);
                 
                 if(tmdb.logo) {
                     el.querySelector('.hero-title-container').innerHTML = `<img src="${tmdb.logo}" class="hero-logo" alt="${tmdb.titulo}">`;

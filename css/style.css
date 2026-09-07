@@ -120,6 +120,11 @@ body {
 .nav-center span { color: var(--accent); }
 .nav-center img { height: 28px; border-radius: 6px; }
 
+/* Fica fora do <header>, mas no desktop se posiciona exatamente onde o antigo .nav-right
+   ficava (canto superior direito) — como o gradiente de fundo do #top-nav já cobre a
+   largura toda, os ícones continuam parecendo parte do mesmo menu. */
+#top-actions-bar { position: fixed; top: 0; right: 0; height: 90px; padding: 0 60px 0 0; z-index: 2001; }
+
 .nav-link { background: none; border: none; color: var(--text-muted); font-size: 17px; font-weight: 600; cursor: pointer; transition: 0.3s ease; }
 .nav-link:hover { color: white; }
 .nav-link.active { color: white; text-shadow: 0 0 15px rgba(255,255,255,0.6); }
@@ -166,7 +171,7 @@ body {
 .hero-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1s ease-in-out; display: flex; align-items: flex-end; justify-content: center; padding: 0 60px 120px 60px; text-align: center; cursor: pointer; }
 .hero-slide.active { opacity: 1; z-index: 2; }
 .hero-bg { 
-    position: absolute; inset: 0; background-size: cover; background-position: top center; z-index: 0; 
+    position: absolute; inset: 0; background-image: var(--hero-backdrop); background-size: cover; background-position: top center; z-index: 0; 
     transition: transform 12s linear; mask-image: linear-gradient(to top, transparent 0%, black 50%, black 100%); 
     -webkit-mask-image: linear-gradient(to top, transparent 0%, black 50%, black 100%); opacity: 0.6; 
 }
@@ -600,20 +605,19 @@ body {
        "quebrado" num app. Vale pra todo input de texto do app. */
     .login-input, .login-input-no-bg, #search-box, #live-search-box { font-size: 16px; }
 
-    /* 2. MENU INFERIOR (BOTTOM NAV BAR) */
+    /* 2. MENU INFERIOR (BOTTOM NAV BAR) — agora só com as abas (Início/Ao Vivo/Filmes/Séries) */
     #top-nav { 
         top: auto; bottom: 0; height: 85px; padding: 10px 20px 25px 20px; 
         background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
         border-top: 1px solid rgba(255,255,255,0.05); border-bottom: none;
-        flex-direction: row; justify-content: space-between; align-items: center;
+        flex-direction: row; justify-content: center; align-items: center;
         /* área segura do "home indicator" do iPhone — sem isso, os ícones
            ficam colados/embaixo da faixa de gesto do sistema */
         padding-bottom: calc(25px + env(safe-area-inset-bottom));
         height: calc(85px + env(safe-area-inset-bottom));
     }
     .nav-center { display: none; } /* Remove logo do menu no mobile */
-    .nav-left { gap: 10px; flex: 1; justify-content: space-around; }
-    .nav-right { gap: 10px; flex: 0.5; justify-content: space-around; }
+    .nav-left { gap: 10px; width: 100%; justify-content: space-around; }
     
     .nav-link { 
         font-size: 13px; opacity: 0.5; font-weight: 500; padding: 5px; 
@@ -624,14 +628,28 @@ body {
         border-bottom: 2px solid white; border-radius: 0; text-shadow: none; 
     }
 
-    /* Ícones do canto direito (busca, perfil, atualizar) — alvo de toque
-       confortável (mínimo recomendado ~44px) mesmo com ícone visualmente menor */
-    .nav-right .icon-btn { min-width: 40px; min-height: 40px; display: flex; align-items: center; justify-content: center; }
-    .nav-right .icon-btn:hover { transform: none; } /* hover "grudado" após tap fica estranho no touch */
-    .nav-right .icon-btn:active { opacity: 1; transform: scale(0.92); }
+    /* 2b. BARRA DE AÇÕES NO TOPO (busca, atualizar, perfil) — antes isso tudo ficava
+       espremido dentro da barra de baixo junto com as abas (7 itens numa linha só);
+       agora é uma faixa fixa própria, colada no topo, como um app de verdade. */
+    #top-actions-bar {
+        position: fixed; top: 0; left: 0; right: 0; height: auto; z-index: 2100;
+        display: flex; align-items: center; justify-content: flex-end; gap: 14px;
+        padding: calc(14px + env(safe-area-inset-top)) 20px 12px 20px;
+        /* Sem backdrop-filter aqui de propósito: esse tipo de blur em cima de um elemento
+           cria um "containing block" novo pra filhos com position:fixed — e o overlay de
+           busca em tela cheia (mais abaixo) é filho deste elemento e PRECISA ficar fixo
+           relativo à tela inteira, não só a essa faixinha do topo. Um fundo sólido
+           semi-transparente dá o mesmo efeito visual sem esse problema. */
+        background: rgba(10, 10, 10, 0.9); border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    /* Ícones do topo — alvo de toque confortável (mínimo recomendado ~44px) mesmo com ícone visualmente menor */
+    #top-actions-bar .icon-btn { min-width: 40px; min-height: 40px; display: flex; align-items: center; justify-content: center; }
+    #top-actions-bar .icon-btn:hover { transform: none; } /* hover "grudado" após tap fica estranho no touch */
+    #top-actions-bar .icon-btn:active { opacity: 1; transform: scale(0.92); }
 
     /* BUSCA — vira um overlay em tela cheia, não faz sentido um campinho de
-       180px espremido dentro da barra inferior de navegação. */
+       180px espremido dentro da barra de ícones do topo. */
     .search-wrapper.active {
         position: fixed; inset: 0; z-index: 6000; width: 100%; height: 100%;
         background: rgba(10,10,10,0.98); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -648,7 +666,12 @@ body {
     .btn-fechar-busca-mobile svg { width: 22px; height: 22px; fill: currentColor; }
     
     /* 3. HERO BANNER (Estilo Reel/Vertical) */
-    .hero-slider { height: 75vh; height: 75dvh; margin-bottom: 20px; }
+    /* Pôster (retrato, 2:3) em vez do backdrop (paisagem, 16:9) — numa tela alta e estreita,
+       "cover" com uma imagem paisagem precisa ampliar TANTO pra cobrir a altura que vira um
+       zoom gigante numa fatia aleatória. O pôster já nasce numa proporção parecida com a da
+       tela do celular, então o corte fica natural — é o padrão que apps de streaming usam. */
+    .hero-slider { height: 65vh; height: 65dvh; margin-bottom: 20px; }
+    .hero-bg { background-image: var(--hero-poster, var(--hero-backdrop)); background-position: center top; }
     .hero-slide { padding: 0 20px 40px 20px; justify-content: flex-end; }
     .hero-title { font-size: 44px; letter-spacing: -1px; text-align: center; margin-bottom: 10px; }
     .hero-meta-row { justify-content: center; gap: 10px; }
@@ -683,20 +706,22 @@ body {
     .media-card:hover .img-container { box-shadow: 0 5px 15px rgba(0,0,0,0.5); border-color: transparent; }
     .media-card:active { transform: scale(0.96); transition: transform 0.1s ease; }
 
+    /* Altura reservada pra barra fixa do topo (ver #top-actions-bar) — usada em vários
+       lugares abaixo pra nenhum conteúdo nascer escondido atrás dela. */
+    :root { --mobile-topbar-h: calc(66px + env(safe-area-inset-top)); }
+
     /* 7. FILTROS (Pills "All, Movies, Series...") */
-    #category-bar { position: relative; top: 0; background: transparent; padding: 0 20px; margin-bottom: 25px; }
+    #category-bar { position: relative; top: 0; background: transparent; padding: 0 20px; margin-bottom: 25px; margin-top: var(--mobile-topbar-h); }
     #category-list { padding: 0; gap: 10px; -webkit-overflow-scrolling: touch; }
     #category-list li { background: #1c1c1e; border-radius: 20px; font-size: 13px; font-weight: 500; border: 1px solid transparent; padding: 6px 16px; }
     #category-list li.active { background: #333; color: white; border: 1px solid #555; }
 
     /* 8. TV AO VIVO (Ajustes de Grid) */
-    #grid-view, #media-grid { padding: 20px; }
-    .grid-header { padding-top: 20px; }
-    /* No mobile a #category-bar deixa de ser "fixed" (vira parte do fluxo normal
-       da página, ver regra acima), então o espaço extra de 175px calculado pro
-       desktop não é necessário aqui — sem este reset, a regra mais específica
-       ".tem-category-bar" (definida lá em cima) venceria por especificidade e
-       deixaria um vão enorme em branco no topo da grade no celular. */
+    #grid-view, #media-grid { padding: 20px; padding-top: var(--mobile-topbar-h); }
+    .grid-header { padding-top: var(--mobile-topbar-h); }
+    /* Quando JÁ existe a barra de categorias (#category-bar) acima, ela mesma já reservou
+       o espaço da barra fixa (via margin-top acima) — então a grade não precisa reservar
+       de novo, senão duplicaria o vão em branco no topo. */
     #grid-view.tem-category-bar #media-grid,
     #grid-view.tem-category-bar .grid-header { padding-top: 20px; }
     /* Grade de pôsteres em 3 colunas fixas (padrão de app de streaming) em vez
@@ -709,17 +734,18 @@ body {
        é o padrão que apps de streaming/YouTube usam no mobile: o vídeo nunca
        some da tela enquanto você navega pelos canais. Também evita ter um
        scroll "dentro" de outro scroll, que é o que mais deixa um app mobile
-       com sensação de travado. */
-    #live-player-column { order: -1; width: 100%; min-width: 100%; position: sticky; top: 0; z-index: 10; background: #000; padding-bottom: 10px; }
+       com sensação de travado. `top` alinhado com a altura da barra fixa do
+       topo, senão o miniplayer "sticky" fica preso embaixo dela ao rolar. */
+    #live-player-column { order: -1; width: 100%; min-width: 100%; position: sticky; top: var(--mobile-topbar-h); z-index: 10; background: #000; padding-bottom: 10px; }
     #miniplayer-container { border-radius: 12px; }
     #live-epg-container { max-height: 160px; }
     #live-channels-column { flex: none; height: auto; overflow: visible; margin-bottom: 0; }
     #live-channels-list { overflow: visible; -webkit-overflow-scrolling: touch; }
 
     /* 9. DETALHES DE FILME/SÉRIE */
-    .md-content { padding: 40px 20px 30px 20px; }
+    .md-content { padding: 20px 20px 30px 20px; padding-top: var(--mobile-topbar-h); }
     .md-top-section { flex-direction: column; align-items: center; text-align: center; gap: 25px; }
-    .btn-close { top: calc(20px + env(safe-area-inset-top)); right: 20px; width: 40px; height: 40px; z-index: 500;}
+    .btn-close { top: calc(var(--mobile-topbar-h) + 10px); right: 20px; width: 40px; height: 40px; z-index: 500;}
     .md-actions { justify-content: center; flex-wrap: wrap; width: 100%;}
     .btn-play-main { width: 100%; justify-content: center; }
     .series-layout { flex-direction: column; gap: 20px;}
