@@ -30,6 +30,18 @@
     padding: 0; 
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, sans-serif; 
     -webkit-font-smoothing: antialiased;
+    /* Suavidade em toque: remove o delay de 300ms antes de registrar um tap
+       (o navegador não precisa mais esperar pra ver se vai virar duplo-toque
+       de zoom) e tira aquele flash cinza/azul padrão ao tocar em botões —
+       é exatamente esse tipo de detalhe que faz um app parecer "nativo". */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+html {
+    /* Evita "borracha" (rubber-band) puxando a página inteira pros lados —
+       cada área rolável cuida do seu próprio scroll (ver overflow-x/y abaixo). */
+    overscroll-behavior: none;
 }
 
 body { 
@@ -37,9 +49,11 @@ body {
     color: var(--text-main); 
     display: flex; 
     height: 100vh; 
+    height: 100dvh; /* evita "pulo" de layout no mobile quando a barra de endereço aparece/some */
     overflow: hidden; 
     flex-direction: row; 
     background-image: radial-gradient(circle at top left, #121214, #000000);
+    overflow-x: hidden;
 }
 
 /* ================== TELA DE LOGIN ================== */
@@ -145,7 +159,7 @@ body {
 
 /* ================== MAIN AREA & HERO BANNER ================== */
 #main-area { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; background: transparent; }
-.view-section { display: none; flex-direction: column; flex-grow: 1; overflow-y: auto; padding: 0; scroll-behavior: smooth; position: absolute; inset: 0; }
+.view-section { display: none; flex-direction: column; flex-grow: 1; overflow-y: auto; padding: 0; scroll-behavior: smooth; position: absolute; inset: 0; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
 .view-section.active { display: flex; }
 
 .hero-slider { position: relative; height: 85vh; min-height: 500px; overflow: hidden; margin-bottom: -80px; background: #000; }
@@ -196,7 +210,7 @@ body {
 .left-btn { left: 15px; }
 .right-btn { right: 15px; }
 
-.row-scroller { display: flex; gap: 18px; overflow-x: auto; overflow-y: hidden; padding: 15px 60px 40px 60px; scroll-snap-type: x mandatory; scroll-padding-left: 60px; scrollbar-width: none; width: 100%; }
+.row-scroller { display: flex; gap: 18px; overflow-x: auto; overflow-y: hidden; padding: 15px 60px 40px 60px; scroll-snap-type: x mandatory; scroll-padding-left: 60px; scrollbar-width: none; width: 100%; -webkit-overflow-scrolling: touch; }
 .row-scroller::-webkit-scrollbar { display: none; }
 
 /* NÚMEROS GIGANTES TOP 10 */
@@ -261,7 +275,7 @@ body {
 
 /* ================== LAYOUT TV AO VIVO ================== */
 #live-layout-container {
-    display: flex; gap: 30px; height: 100vh; width: 100%;
+    display: flex; gap: 30px; height: 100vh; height: 100dvh; width: 100%;
     padding: 110px 60px 30px 60px; position: relative; overflow: hidden;
 }
 
@@ -273,6 +287,16 @@ body {
 }
 #live-category-sidebar.open { left: 0; }
 
+/* Fundo escurecido atrás da gaveta de categorias — só fica clicável/visível
+   quando ela está aberta (padrão comum em apps mobile pra indicar "modal"). */
+#live-sidebar-backdrop {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.6); z-index: 999;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+}
+#live-layout-container.sidebar-aberta #live-sidebar-backdrop {
+    opacity: 1; pointer-events: auto;
+}
+
 .live-search {
     display: flex; align-items: center; background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); 
     border-radius: 12px; padding: 12px 15px; margin-bottom: 20px;
@@ -280,7 +304,7 @@ body {
 .live-search svg { width: 18px; height: 18px; fill: var(--text-muted); margin-right: 10px; }
 .live-search input { background: transparent; border: none; color: white; width: 100%; outline: none; font-size: 15px;}
 
-#live-category-list { list-style: none; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
+#live-category-list { list-style: none; flex-grow: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 5px; }
 #live-category-list li {
     padding: 12px 15px; border-radius: 12px; cursor: pointer; color: var(--text-main); font-size: 15px;
     font-weight: 500; display: flex; align-items: center; transition: 0.3s;
@@ -299,7 +323,7 @@ body {
 .live-channels-header button:hover svg { fill: black; }
 .live-channels-header h3 { color: white; font-size: 22px; font-weight: 700; }
 
-#live-channels-list { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 10px; }
+#live-channels-list { flex-grow: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 8px; padding-right: 10px; }
 .live-channel-row { 
     display: flex; align-items: center; background: rgba(35, 35, 35, 0.6); 
     padding: 12px 15px; border-radius: 12px; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s ease; 
@@ -434,39 +458,6 @@ body {
 .episode-row-card:hover .ep-play-overlay { opacity: 1; }
 .ep-play-overlay svg { width: 48px; height: 48px; fill: white; }
 
-/* Episódio já assistido por completo (ver assistidosCompletos em app.js) */
-.episode-row-card.ep-assistido .ep-row-img img { opacity: 0.35; }
-.episode-row-card.ep-assistido .ep-row-title { color: var(--text-muted); }
-.ep-watched-badge {
-    position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%;
-    background: var(--accent); display: flex; align-items: center; justify-content: center; z-index: 2;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-}
-.ep-watched-badge svg { width: 15px; height: 15px; fill: white; }
-
-/* Card "A seguir" — aparece nos últimos 10s do episódio/filme atual */
-#player-next-episode {
-    position: absolute; right: 30px; bottom: 30px; z-index: 5060;
-    background: rgba(20,20,22,0.92); backdrop-filter: blur(14px); border: 1px solid var(--border-glass);
-    border-radius: 16px; padding: 14px; animation: next-ep-in 0.3s ease;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
-}
-@keyframes next-ep-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-.next-ep-body { display: flex; align-items: center; gap: 14px; cursor: pointer; }
-.next-ep-body img { width: 100px; aspect-ratio: 16/9; object-fit: cover; border-radius: 10px; background: #000; }
-.next-ep-info { display: flex; flex-direction: column; gap: 4px; max-width: 180px; }
-.next-ep-label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
-.next-ep-title { font-size: 15px; color: white; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.next-ep-play { width: 40px; height: 40px; min-width: 40px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; transition: 0.2s ease; }
-.next-ep-body:hover .next-ep-play { background: var(--accent-hover); transform: scale(1.1); }
-.next-ep-play svg { width: 20px; height: 20px; fill: white; }
-.next-ep-close {
-    position: absolute; top: -8px; right: -8px; width: 24px; height: 24px; border-radius: 50%;
-    background: rgba(40,40,42,0.95); border: 1px solid var(--border-glass); color: white; font-size: 16px;
-    line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center;
-}
-.next-ep-close:hover { background: var(--accent); }
-
 /* PLAYER OVERLAY */
 #player-wrapper { display: none; position: absolute; inset: 0; background: #000; z-index: 5000; flex-direction: column; }
 
@@ -481,7 +472,75 @@ body {
 #player-wrapper .video-js video,
 #player-wrapper .vjs-tech { width: 100% !important; height: 100% !important; object-fit: contain; }
 
-/* Spinner de carregamento do player principal */
+/* ================== CONTROLES DO PLAYER (REDESENHADOS) ==================
+   O Video.js vem com uma skin padrão (vjs-default-skin) meio genérica e com
+   alvos de toque pequenos. Aqui a gente sobrescreve pra: (1) combinar com o
+   visual "glass" do resto do app, (2) ficar confortável de tocar no celular
+   — que era um pedido separado seu. */
+#player-wrapper .vjs-control-bar {
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
+    height: 70px; align-items: center; padding: 0 14px;
+}
+/* Barra de progresso: trilho mais grosso, preenchimento na cor de destaque
+   do app (var(--accent)) em vez do cinza padrão, e uma "bolinha" (thumb)
+   maior e sempre visível — mais fácil de agarrar com o dedo pra arrastar. */
+#player-wrapper .vjs-progress-control { position: absolute; top: -14px; left: 0; right: 0; width: 100%; height: 14px; }
+#player-wrapper .vjs-progress-holder {
+    height: 5px; margin: 0 14px; border-radius: 3px; background: rgba(255,255,255,0.25);
+    transition: height 0.15s ease;
+}
+#player-wrapper .vjs-progress-control:hover .vjs-progress-holder,
+#player-wrapper .vjs-progress-holder:active { height: 8px; }
+#player-wrapper .vjs-play-progress { background: var(--accent); border-radius: 3px; }
+#player-wrapper .vjs-load-progress { background: rgba(255,255,255,0.35); border-radius: 3px; }
+#player-wrapper .vjs-load-progress div { background: rgba(255,255,255,0.2); }
+/* A "bolinha" que fica na ponta do progresso, pra arrastar */
+#player-wrapper .vjs-play-progress:before {
+    font-size: 15px; top: -5px; color: white; text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+#player-wrapper .vjs-time-tooltip {
+    background: rgba(20,20,22,0.9); border-radius: 6px; padding: 4px 8px; font-size: 12px;
+}
+
+/* Botão central de play/pause e demais botões — maiores, com feedback de
+   toque via :active em vez de só :hover (que não existe de verdade no touch). */
+#player-wrapper .vjs-control-bar .vjs-button > .vjs-icon-placeholder:before {
+    font-size: 26px; line-height: 46px;
+}
+#player-wrapper .vjs-control-bar .vjs-button {
+    width: 46px; height: 46px; display: flex; align-items: center; justify-content: center;
+}
+#player-wrapper .vjs-button:active { transform: scale(0.9); transition: transform 0.1s ease; }
+
+/* Botão grande de play no centro, exibido antes de começar a tocar */
+#player-wrapper .vjs-big-play-button {
+    width: 76px; height: 76px; line-height: 76px; border-radius: 50%;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 2px solid rgba(255,255,255,0.5); top: 50%; left: 50%; margin-top: -38px; margin-left: -38px;
+}
+#player-wrapper .vjs-big-play-button .vjs-icon-placeholder:before { font-size: 34px; line-height: 72px; }
+
+/* Volume — mesma cor de destaque, trilho mais visível */
+#player-wrapper .vjs-volume-level { background: var(--accent); }
+#player-wrapper .vjs-volume-bar { background: rgba(255,255,255,0.25); border-radius: 3px; }
+#player-wrapper .vjs-volume-panel { display: flex; align-items: center; }
+
+/* Botão "Próximo episódio" — canto inferior direito, aparece nos últimos
+   segundos do episódio. */
+.btn-proximo-episodio {
+    position: absolute; right: 24px; bottom: 100px; z-index: 5100;
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(20,20,22,0.85); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border-glass); border-radius: 14px; padding: 12px 18px;
+    color: white; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    animation: fadeIn 0.3s ease;
+}
+.btn-proximo-episodio:active { transform: scale(0.96); }
+.prox-ep-textos { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
+.prox-ep-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.prox-ep-nome { font-size: 14px; font-weight: 700; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+
 #player-wrapper.player-loading::after {
     content: ''; position: absolute; top: 50%; left: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px;
     border: 4px solid rgba(255,255,255,0.25); border-top-color: var(--accent); border-radius: 50%;
@@ -535,6 +594,11 @@ body {
     #login-screen::before { width: 90vw; height: 90vw; top: -10vw; left: -20vw; }
     #login-screen::after { width: 100vw; height: 100vw; bottom: -20vw; right: -20vw; }
     .login-glow { width: 80vw; height: 80vw; top: 40%; left: 50%; transform: translateX(-50%); opacity: 0.2; }
+    /* font-size 16px é o mínimo pro Safari/Chrome do iOS NÃO darem zoom
+       automático ao focar o campo — abaixo disso, o navegador aumenta o
+       zoom da página inteira sozinho ao tocar no input, o que parece bem
+       "quebrado" num app. Vale pra todo input de texto do app. */
+    .login-input, .login-input-no-bg, #search-box, #live-search-box { font-size: 16px; }
 
     /* 2. MENU INFERIOR (BOTTOM NAV BAR) */
     #top-nav { 
@@ -542,6 +606,10 @@ body {
         background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
         border-top: 1px solid rgba(255,255,255,0.05); border-bottom: none;
         flex-direction: row; justify-content: space-between; align-items: center;
+        /* área segura do "home indicator" do iPhone — sem isso, os ícones
+           ficam colados/embaixo da faixa de gesto do sistema */
+        padding-bottom: calc(25px + env(safe-area-inset-bottom));
+        height: calc(85px + env(safe-area-inset-bottom));
     }
     .nav-center { display: none; } /* Remove logo do menu no mobile */
     .nav-left { gap: 10px; flex: 1; justify-content: space-around; }
@@ -555,9 +623,32 @@ body {
         opacity: 1; color: white; font-weight: 700; 
         border-bottom: 2px solid white; border-radius: 0; text-shadow: none; 
     }
+
+    /* Ícones do canto direito (busca, perfil, atualizar) — alvo de toque
+       confortável (mínimo recomendado ~44px) mesmo com ícone visualmente menor */
+    .nav-right .icon-btn { min-width: 40px; min-height: 40px; display: flex; align-items: center; justify-content: center; }
+    .nav-right .icon-btn:hover { transform: none; } /* hover "grudado" após tap fica estranho no touch */
+    .nav-right .icon-btn:active { opacity: 1; transform: scale(0.92); }
+
+    /* BUSCA — vira um overlay em tela cheia, não faz sentido um campinho de
+       180px espremido dentro da barra inferior de navegação. */
+    .search-wrapper.active {
+        position: fixed; inset: 0; z-index: 6000; width: 100%; height: 100%;
+        background: rgba(10,10,10,0.98); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        border-radius: 0; border: none; padding: calc(60px + env(safe-area-inset-top)) 20px 20px 20px;
+        align-items: flex-start;
+    }
+    .search-wrapper.active svg { width: 22px; height: 22px; margin-right: 12px; flex-shrink: 0; }
+    .search-wrapper.active input { width: 100%; font-size: 18px; }
+    .btn-fechar-busca-mobile {
+        display: none; background: none; border: none; color: white; opacity: 0.7;
+        margin-left: 10px; flex-shrink: 0;
+    }
+    .search-wrapper.active .btn-fechar-busca-mobile { display: flex; align-items: center; justify-content: center; }
+    .btn-fechar-busca-mobile svg { width: 22px; height: 22px; fill: currentColor; }
     
     /* 3. HERO BANNER (Estilo Reel/Vertical) */
-    .hero-slider { height: 75vh; margin-bottom: 20px; }
+    .hero-slider { height: 75vh; height: 75dvh; margin-bottom: 20px; }
     .hero-slide { padding: 0 20px 40px 20px; justify-content: flex-end; }
     .hero-title { font-size: 44px; letter-spacing: -1px; text-align: center; margin-bottom: 10px; }
     .hero-meta-row { justify-content: center; gap: 10px; }
@@ -565,7 +656,7 @@ body {
     .slider-controls { bottom: 40px; }
 
     /* 4. LAYOUT GERAL (Espaço para o Bottom Nav) */
-    #main-area { padding-bottom: 90px; }
+    #main-area { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
     .home-content-wrapper { padding-top: 0; }
 
     /* 5. CABEÇALHOS DAS FILEIRAS (Com Setinha > ) */
@@ -585,9 +676,16 @@ body {
     .card-info { padding: 10px 0; }
     .card-title { font-size: 14px; font-weight: 600; }
 
+    /* :hover com "lift" (translateY) pode ficar preso depois de um toque no
+       mobile — desliga o hover aqui e usa :active (efeito de "afundar" ao
+       tocar, mais parecido com o feedback nativo de um app). */
+    .media-card:hover { transform: none; }
+    .media-card:hover .img-container { box-shadow: 0 5px 15px rgba(0,0,0,0.5); border-color: transparent; }
+    .media-card:active { transform: scale(0.96); transition: transform 0.1s ease; }
+
     /* 7. FILTROS (Pills "All, Movies, Series...") */
     #category-bar { position: relative; top: 0; background: transparent; padding: 0 20px; margin-bottom: 25px; }
-    #category-list { padding: 0; gap: 10px; }
+    #category-list { padding: 0; gap: 10px; -webkit-overflow-scrolling: touch; }
     #category-list li { background: #1c1c1e; border-radius: 20px; font-size: 13px; font-weight: 500; border: 1px solid transparent; padding: 6px 16px; }
     #category-list li.active { background: #333; color: white; border: 1px solid #555; }
 
@@ -601,22 +699,41 @@ body {
        deixaria um vão enorme em branco no topo da grade no celular. */
     #grid-view.tem-category-bar #media-grid,
     #grid-view.tem-category-bar .grid-header { padding-top: 20px; }
-    #live-layout-container { flex-direction: column; padding: 20px; height: auto; overflow: visible;}
-    #live-category-sidebar { left: -100%; width: 80%; top: 0; z-index: 3000;}
-    #live-channels-column { flex: none; height: 400px; margin-bottom: 20px;}
-    #live-player-column { width: 100%; min-width: 100%; }
+    /* Grade de pôsteres em 3 colunas fixas (padrão de app de streaming) em vez
+       do auto-fill de 150px, que sobrava espaço estranho em telas estreitas. */
+    #media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; row-gap: 24px; }
+
+    #live-layout-container { flex-direction: column; padding: 20px; height: auto; overflow: visible; gap: 15px; }
+    #live-category-sidebar { left: -100%; width: 80%; top: 0; z-index: 3000; padding-top: calc(30px + env(safe-area-inset-top)); }
+    /* Player fixo ("docked") no topo enquanto rola a lista de canais embaixo —
+       é o padrão que apps de streaming/YouTube usam no mobile: o vídeo nunca
+       some da tela enquanto você navega pelos canais. Também evita ter um
+       scroll "dentro" de outro scroll, que é o que mais deixa um app mobile
+       com sensação de travado. */
+    #live-player-column { order: -1; width: 100%; min-width: 100%; position: sticky; top: 0; z-index: 10; background: #000; padding-bottom: 10px; }
+    #miniplayer-container { border-radius: 12px; }
+    #live-epg-container { max-height: 160px; }
+    #live-channels-column { flex: none; height: auto; overflow: visible; margin-bottom: 0; }
+    #live-channels-list { overflow: visible; -webkit-overflow-scrolling: touch; }
 
     /* 9. DETALHES DE FILME/SÉRIE */
     .md-content { padding: 40px 20px 30px 20px; }
     .md-top-section { flex-direction: column; align-items: center; text-align: center; gap: 25px; }
-    .btn-close { top: 20px; right: 20px; width: 40px; height: 40px; z-index: 500;}
+    .btn-close { top: calc(20px + env(safe-area-inset-top)); right: 20px; width: 40px; height: 40px; z-index: 500;}
     .md-actions { justify-content: center; flex-wrap: wrap; width: 100%;}
     .btn-play-main { width: 100%; justify-content: center; }
     .series-layout { flex-direction: column; gap: 20px;}
-    .seasons-sidebar { width: 100%; flex-direction: row; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; }
+    .seasons-sidebar { width: 100%; flex-direction: row; overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap; padding-bottom: 10px; }
     .episode-row-card { flex-direction: column; }
     .ep-row-img { width: 100%; aspect-ratio: 16/9; min-width: 100%;}
     .ep-row-info { padding: 15px; }
+
+    /* 10. PLAYER DE VÍDEO — controles maiores e com área segura do iPhone,
+       botão de próximo episódio reposicionado pra não colidir com eles. */
+    #btn-fechar-player { top: calc(15px + env(safe-area-inset-top)); }
+    .vjs-control-bar { padding-bottom: env(safe-area-inset-bottom); }
+    .btn-proximo-episodio { right: 12px; bottom: calc(70px + env(safe-area-inset-bottom)); padding: 10px 14px; }
+    .prox-ep-nome { max-width: 140px; }
 }
 /* Animação do ícone de "Atualizar Catálogo" enquanto busca dados novos */
 @keyframes spin {

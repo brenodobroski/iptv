@@ -79,6 +79,14 @@ document.getElementById('btn-search').addEventListener('click', () => {
     }
 });
 
+// No mobile a busca vira um overlay em tela cheia (ver style.css) com um "X"
+// próprio pra fechar, já que ali não faz sentido reaproveitar o mesmo ícone de
+// lupa que abriu ela. Simplesmente aciona o mesmo fluxo de fechamento acima.
+const btnFecharBuscaMobile = document.getElementById('btn-fechar-busca-mobile');
+if (btnFecharBuscaMobile) {
+    btnFecharBuscaMobile.addEventListener('click', () => document.getElementById('btn-search').click());
+}
+
 document.querySelectorAll('.nav-link').forEach(btn => {
     btn.addEventListener('click', (e) => {
         forcarFechamentoPlayer();
@@ -618,41 +626,10 @@ async function abrirDetalhesMedia(id, tipo) {
             
             const seasonsSidebar = document.getElementById('seasons-sidebar');
             const listUI = document.getElementById('md-episodes');
-            // BUG CORRIGIDO: Object.keys() devolve as temporadas como STRING e na ordem em
-            // que a API mandou, não em ordem numérica — então "Temporada 10" podia aparecer
-            // antes da "Temporada 2" na sidebar. Isso também quebrava silenciosamente a
-            // lógica de "próximo episódio" (feature nova abaixo), que depende de saber a
-            // ordem real das temporadas pra saber o que vem depois do último episódio de
-            // uma temporada.
-            const temporadas = Object.keys(data.episodes).sort((a, b) => Number(a) - Number(b));
+            const temporadas = Object.keys(data.episodes);
             
             seasonsSidebar.innerHTML = '';
             listUI.innerHTML = '';
-
-            // ================== FILA DE EPISÓDIOS (pra feature "Próximo Episódio") ==================
-            // Achata todas as temporadas numa lista única, na ordem certa de exibição, e monta
-            // pra cada episódio os metadados que o player precisa — incluindo, recursivamente,
-            // os metadados do episódio SEGUINTE (`proximo`). Assim, quando o player.js estiver
-            // tocando o episódio 5 e chegar nos últimos 10s, ele já sabe tudo sobre o episódio 6
-            // sem precisar voltar a consultar a ui.js — e se o episódio 6 também estiver perto
-            // do fim, ele já tem o 7 encadeado dentro do 6, e assim por diante.
-            let episodiosFlat = [];
-            temporadas.forEach(tNum => {
-                data.episodes[tNum].forEach(ep => episodiosFlat.push({ ...ep, _temporada: tNum }));
-            });
-
-            function montarMetadadosEpisodio(ep, index) {
-                const url = `${credenciais.host}/series/${credenciais.user}/${credenciais.pass}/${ep.id}.${ep.container_extension}`;
-                const meta = {
-                    id: ep.id, name: ep.title, url, aba: 'series',
-                    poster: (ep.info && ep.info.movie_image) || imgPoster,
-                    temporada: ep._temporada,
-                    proximo: null
-                };
-                const proximoEp = episodiosFlat[index + 1];
-                if (proximoEp) meta.proximo = montarMetadadosEpisodio(proximoEp, index + 1);
-                return meta;
-            }
 
             if (temporadas.length === 0) {
                 seasonsSidebar.style.display = 'none';
@@ -665,11 +642,7 @@ async function abrirDetalhesMedia(id, tipo) {
                     data.episodes[tNum].forEach((ep, index) => {
                         const epPlayUrl = `${credenciais.host}/series/${credenciais.user}/${credenciais.pass}/${ep.id}.${ep.container_extension}`;
                         const epItem = document.createElement('div');
-                        // Marca visualmente episódios já vistos por completo (ver assistidosCompletos em app.js).
-                        // Diferente do "continuar assistindo" (que só existe pra quem parou NO MEIO), isso aqui
-                        // mostra um ✓ em QUALQUER episódio já visto inteiro, mesmo que tenha sido visto até o fim.
-                        const jaAssistido = !!assistidosCompletos[ep.id];
-                        epItem.className = `episode-row-card ${jaAssistido ? 'ep-assistido' : ''}`;
+                        epItem.className = 'episode-row-card'; 
                         
                         const plot = ep.info && ep.info.plot ? ep.info.plot : (ep.info && ep.info.overview ? ep.info.overview : 'Sinopse não disponível para este episódio.');
                         const duration = ep.info && ep.info.duration ? ` • ${ep.info.duration}` : '';
@@ -680,7 +653,6 @@ async function abrirDetalhesMedia(id, tipo) {
                                 <div class="ep-play-overlay">
                                     <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                                 </div>
-                                ${jaAssistido ? '<div class="ep-watched-badge" title="Já assistido"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></div>' : ''}
                             </div>
                             <div class="ep-row-info">
                                 <div class="ep-row-title">${index + 1}. ${ep.title}</div>
@@ -688,8 +660,7 @@ async function abrirDetalhesMedia(id, tipo) {
                                 <div class="ep-row-desc">${plot}</div>
                             </div>
                         `;
-                        const indiceFlat = episodiosFlat.findIndex(e => e.id === ep.id);
-                        epItem.onclick = () => abrirPlayer(epPlayUrl, montarMetadadosEpisodio(ep, indiceFlat));
+                        epItem.onclick = () => abrirPlayer(epPlayUrl, { id: ep.id, name: ep.title, url: epPlayUrl, aba: 'series' });
                         listUI.appendChild(epItem);
                     });
                 }
@@ -710,7 +681,7 @@ async function abrirDetalhesMedia(id, tipo) {
                 renderEpisodios(temporadas[0]);
                 
                 btnPlayMain.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="margin-right:5px;"><path d="M8 5v14l11-7z"/></svg> Assistir Episódio 1`;
-                btnPlayMain.onclick = () => abrirPlayer(episodiosFlat[0].url ? episodiosFlat[0].url : `${credenciais.host}/series/${credenciais.user}/${credenciais.pass}/${episodiosFlat[0].id}.${episodiosFlat[0].container_extension}`, montarMetadadosEpisodio(episodiosFlat[0], 0));
+                btnPlayMain.onclick = () => abrirPlayer(`${credenciais.host}/series/${credenciais.user}/${credenciais.pass}/${data.episodes[temporadas[0]][0].id}.${data.episodes[temporadas[0]][0].container_extension}`, {id: data.episodes[temporadas[0]][0].id, aba: 'series'});
             }
         }
         
@@ -749,20 +720,30 @@ window.fecharDetalhesMedia = function() {
 
 // ================== LOGICA DO SIDEBAR DE TV AO VIVO ==================
 
+// Abre/fecha a gaveta (drawer) de categorias da TV ao vivo, sempre em sincronia
+// com o fundo escurecido (backdrop) por trás dela — padrão comum em apps de
+// streaming mobile (o fundo escurece e fica tocável pra fechar a gaveta).
+function definirGavetaCategoriasAoVivo(aberta) {
+    const sidebar = document.getElementById('live-category-sidebar');
+    const container = document.getElementById('live-layout-container');
+    if (!sidebar || !container) return;
+    sidebar.classList.toggle('open', aberta);
+    container.classList.toggle('sidebar-aberta', aberta);
+}
+window.definirGavetaCategoriasAoVivo = definirGavetaCategoriasAoVivo;
+
 // Botão que abre a sidebar de categorias
 const btnToggleLiveCats = document.getElementById('btn-toggle-live-cats');
 if(btnToggleLiveCats) {
-    btnToggleLiveCats.addEventListener('click', () => {
-        document.getElementById('live-category-sidebar').classList.add('open');
-    });
+    btnToggleLiveCats.addEventListener('click', () => definirGavetaCategoriasAoVivo(true));
 }
 
-// Fecha a sidebar se clicar fora dela
+// Fecha a sidebar se clicar fora dela (inclui o backdrop, que cobre toda a área)
 document.getElementById('live-layout-container').addEventListener('click', (e) => {
     const sidebar = document.getElementById('live-category-sidebar');
     const btn = document.getElementById('btn-toggle-live-cats');
     if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && !btn.contains(e.target)) {
-        sidebar.classList.remove('open');
+        definirGavetaCategoriasAoVivo(false);
     }
 });
 
@@ -805,7 +786,7 @@ function renderizarCategoriasLiveSidebar() {
             renderizarGrade(filtrados, 'live');
             
             // Fecha a sidebar ao escolher a categoria
-            document.getElementById('live-category-sidebar').classList.remove('open');
+            definirGavetaCategoriasAoVivo(false);
         });
     });
 }
