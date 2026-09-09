@@ -3,6 +3,12 @@ function switchView(viewId) {
     document.getElementById(viewId).classList.add('active');
 }
 
+// Ponto único pra saber se estamos no layout mobile — várias telas (Ao Vivo, grades,
+// etc.) têm comportamento genuinamente diferente no celular, não só CSS.
+function ehMobile() {
+    return window.matchMedia('(max-width: 768px)').matches;
+}
+
 // ================== CONTROLE CENTRAL DA BARRA DE CATEGORIAS ==================
 // Antes, o código que mostrava/escondia a #category-bar estava espalhado em vários
 // lugares (troca de aba, carregamento de catálogo) e a página de detalhes de
@@ -334,6 +340,13 @@ function renderizarCategoriasLista(categorias) {
     let htmlList = '';
     const historicoDaAba = abaAtiva !== 'live' ? Object.values(historicoAssistidos).filter(item => item.aba === abaAtiva) : [];
     
+    // "Todos" sempre existe e sempre tem conteúdo (é o catálogo inteiro) — é o padrão seguro
+    // pra abrir a aba. Antes o padrão era ":nth-child(3)", um chute de posição que dependia
+    // de quantos itens fixos (Continuar Assistindo/Favoritos) apareciam antes dele; quando
+    // esse número mudava, o "padrão" acabava caindo numa categoria real DIFERENTE da
+    // pretendida — às vezes uma vazia — e a tela parecia simplesmente não carregar nada.
+    htmlList += `<li class="cat-todos active" data-id="todos">Todos</li>`;
+
     if (abaAtiva !== 'live' && historicoDaAba.length > 0) {
         htmlList += `<li class="cat-history" data-id="history" style="color:var(--history-color)">Continuar Assistindo <span class="badge-count">${historicoDaAba.length}</span></li>`;
     }
@@ -359,13 +372,14 @@ function renderizarCategoriasLista(categorias) {
             document.getElementById('grid-header').style.display = 'none';
             switchView('grid-view');
             
-            if (id === 'history') { currentCatId = 'history'; renderizarGrade(historicoDaAba.sort((a, b) => b.timestamp - a.timestamp), abaAtiva, false, true); } 
+            if (id === 'todos') { currentCatId = 'todos'; renderizarGrade(db[abaAtiva], abaAtiva, false); }
+            else if (id === 'history') { currentCatId = 'history'; renderizarGrade(historicoDaAba.sort((a, b) => b.timestamp - a.timestamp), abaAtiva, false, true); } 
             else if (id === 'fav') { currentCatId = 'fav'; renderizarGrade(db[abaAtiva].filter(item => favoritos[abaAtiva].includes(item.stream_id || item.series_id)), abaAtiva, false); } 
             else { currentCatId = id; renderizarGrade(db[abaAtiva].filter(item => String(item.category_id) === String(id)), abaAtiva, false); }
         });
     });
     
-    const catParaRestaurar = listUI.querySelector(`li[data-id="${currentCatId}"]`) || listUI.querySelector(`li:nth-child(3)`);
+    const catParaRestaurar = listUI.querySelector(`li[data-id="${currentCatId}"]`) || listUI.querySelector(`li[data-id="todos"]`);
     if (catParaRestaurar) catParaRestaurar.click();
 }
 
@@ -499,6 +513,16 @@ function criarLinhaCanal(item) {
         if (urlFinalLive.toLowerCase().startsWith('http://')) {
             urlFinalLive = montarUrlProxy(urlFinalLive);
         }
+
+        // No mobile não existe o layout "lista + miniplayer + EPG" lado a lado (não cabe
+        // numa tela pequena, e ficar tocando em miniatura enquanto o texto real fica embaixo
+        // só confunde — foi exatamente o que aconteceu). Lá, tocar num canal abre direto o
+        // player GRANDE em tela cheia, igual filme/série — simples e sem ambiguidade.
+        if (ehMobile()) {
+            abrirPlayer(urlFinalLive, { id, name: item.name, aba: 'live' });
+            return;
+        }
+
         livePlayer.src({ src: urlFinalLive, type: 'application/x-mpegURL' });
         livePlayer.play().catch(e => {
             if (e && e.name === 'AbortError') return;
@@ -580,6 +604,13 @@ function renderizarGrade(dados, tipoAba, isEventLayout = false, isHistoryView = 
     } else {
         liveContainer.style.display = 'none';
         gridUI.style.display = 'grid';
+        if (dados.length === 0) {
+            const vazio = document.createElement('div');
+            vazio.className = 'grid-empty-state';
+            vazio.textContent = isHistoryView ? 'Nada por aqui ainda — o que você assistir vai aparecer nesta lista.' : 'Nenhum item encontrado nesta categoria.';
+            gridUI.appendChild(vazio);
+            return;
+        }
         const frag = document.createDocumentFragment();
         dados.slice(0, 500).forEach(item => {
             const card = gerarHTMLCard(item, tipoAba, false, isHistoryView);
