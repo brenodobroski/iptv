@@ -589,7 +589,19 @@ body {
    📱 RESPONSIVIDADE ULTRA MOBILE (Idêntico ao Mockup)
    ========================================= */
 @media (max-width: 768px) {
-    body { background-color: #000; } /* Fundo totalmente preto no mobile para destacar os cards */
+    /* O `body` é flex-direction: row (regra base, lá no topo do arquivo). Isso nunca
+       importou no desktop porque #category-bar e #top-nav são position:fixed lá —
+       ou seja, saem do fluxo normal, e #main-area fica sozinho ocupando 100% da
+       largura do body. Só que aqui no mobile, #category-bar passa a ser
+       position:relative (algumas linhas abaixo) — volta pro fluxo normal como
+       um IRMÃO flex de #main-area. Com flex-direction ainda em "row", os dois
+       passam a ficar lado a lado (na HORIZONTAL) em vez de um embaixo do outro:
+       #category-bar (larga, por causa do "white-space: nowrap" nos filtros) acaba
+       espremendo #main-area — e a grade de filmes/séries dentro dele — pra fora da
+       tela. É exatamente por isso que Filmes/Séries (que MOSTRAM a category-bar)
+       ficavam em branco, enquanto Início/Ao Vivo (que a ESCONDEM) funcionavam
+       normalmente. */
+    body { background-color: #000; flex-direction: column; } /* Fundo totalmente preto no mobile para destacar os cards */
 
     /* 1. TELA DE LOGIN MOBILE */
     .login-logo { top: 40px; font-size: 18px; }
