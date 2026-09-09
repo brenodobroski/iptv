@@ -9,6 +9,21 @@ function ehMobile() {
     return window.matchMedia('(max-width: 768px)').matches;
 }
 
+// `<img onerror="...">` já cobre pôsteres/thumbnails normais, mas um `background-image`
+// via CSS não tem equivalente — se a URL falhar (CDN do TMDB fora do ar, bloqueio de
+// extensão, etc.), o fundo simplesmente fica em branco/transparente sem aviso nenhum.
+// Isso testa a imagem ANTES de aplicá-la, pra manter a imagem anterior (ou o fallback do
+// Xtream) em vez de "sumir" quando o TMDB falha em carregar alguma coisa.
+function precarregarImagem(url) {
+    return new Promise(resolve => {
+        if (!url) { resolve(false); return; }
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = url;
+    });
+}
+
 // ================== CONTROLE CENTRAL DA BARRA DE CATEGORIAS ==================
 // Antes, o código que mostrava/escondia a #category-bar estava espalhado em vários
 // lugares (troca de aba, carregamento de catálogo) e a página de detalhes de
@@ -192,16 +207,16 @@ function setupBanners() {
         dot.className = `dot ${index === 0 ? 'active' : ''}`;
         dotsContainer.appendChild(dot);
         
-        buscarTMDB(item.name, 'vod').then(tmdb => {
+        buscarTMDB(item.name, 'vod').then(async tmdb => {
             if(tmdb) {
                 const el = document.getElementById(slideId);
                 if(!el) return;
                 
                 const bgEl = el.querySelector('.hero-bg');
-                if (tmdb.backdrop) bgEl.style.setProperty('--hero-backdrop', `url('${tmdb.backdrop}')`);
-                if (tmdb.poster) bgEl.style.setProperty('--hero-poster', `url('${tmdb.poster}')`);
+                if (tmdb.backdrop && await precarregarImagem(tmdb.backdrop)) bgEl.style.setProperty('--hero-backdrop', `url('${tmdb.backdrop}')`);
+                if (tmdb.poster && await precarregarImagem(tmdb.poster)) bgEl.style.setProperty('--hero-poster', `url('${tmdb.poster}')`);
                 
-                if(tmdb.logo) {
+                if(tmdb.logo && await precarregarImagem(tmdb.logo)) {
                     el.querySelector('.hero-title-container').innerHTML = `<img src="${tmdb.logo}" class="hero-logo" alt="${tmdb.titulo}">`;
                 } else {
                     el.querySelector('.hero-title').textContent = tmdb.titulo;
