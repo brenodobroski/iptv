@@ -161,6 +161,11 @@ body {
 #category-list li:hover { background: rgba(255,255,255,0.2); }
 #category-list li.active { background: white; color: black; }
 
+/* Botão "Categorias" e botão de fechar da gaveta — só existem no mobile (ver
+   media query mais abaixo). No desktop já cabem todas as pills na horizontal,
+   então ficam escondidos aqui por padrão. */
+.cat-drawer-toggle, .cat-drawer-close { display: none; }
+
 
 /* ================== MAIN AREA & HERO BANNER ================== */
 #main-area { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; background: transparent; }
@@ -589,18 +594,12 @@ body {
    📱 RESPONSIVIDADE ULTRA MOBILE (Idêntico ao Mockup)
    ========================================= */
 @media (max-width: 768px) {
-    /* O `body` é flex-direction: row (regra base, lá no topo do arquivo). Isso nunca
-       importou no desktop porque #category-bar e #top-nav são position:fixed lá —
-       ou seja, saem do fluxo normal, e #main-area fica sozinho ocupando 100% da
-       largura do body. Só que aqui no mobile, #category-bar passa a ser
-       position:relative (algumas linhas abaixo) — volta pro fluxo normal como
-       um IRMÃO flex de #main-area. Com flex-direction ainda em "row", os dois
-       passam a ficar lado a lado (na HORIZONTAL) em vez de um embaixo do outro:
-       #category-bar (larga, por causa do "white-space: nowrap" nos filtros) acaba
-       espremendo #main-area — e a grade de filmes/séries dentro dele — pra fora da
-       tela. É exatamente por isso que Filmes/Séries (que MOSTRAM a category-bar)
-       ficavam em branco, enquanto Início/Ao Vivo (que a ESCONDEM) funcionavam
-       normalmente. */
+    /* flex-direction: column é essencial aqui — o body é flex-direction:row por padrão
+       (regra base no topo do arquivo), o que nunca importou no desktop porque
+       #category-bar e #top-nav são position:fixed lá (saem do fluxo). No mobile,
+       #category-bar volta a ser position:relative (mais abaixo), reentrando no
+       fluxo normal como irmão flex de #main-area — sem essa linha os dois
+       ficariam lado a lado na horizontal, espremendo a grade pra fora da tela. */
     body { background-color: #000; flex-direction: column; } /* Fundo totalmente preto no mobile para destacar os cards */
 
     /* 1. TELA DE LOGIN MOBILE */
@@ -685,15 +684,29 @@ body {
        tela do celular, então o corte fica natural — é o padrão que apps de streaming usam. */
     .hero-slider { height: 58vh; height: 58dvh; margin-bottom: 20px; }
     .hero-bg { background-image: var(--hero-poster, var(--hero-backdrop)); background-position: center 18%; }
+    /* Escurece um pouco mais o topo da imagem (além do que o gradiente de baixo já
+       cobre) — sem isso, títulos claros ficavam com pouco contraste atrás dos ícones
+       fixos (busca/perfil/refresh), especialmente em pôsteres mais claros. */
+    .hero-slide .hero-overlay-gradient { background: linear-gradient(to top, var(--bg-base) 0%, rgba(0,0,0,0.55) 40%, rgba(0,0,0,0.15) 65%, rgba(0,0,0,0.45) 100%); }
     .hero-slide { padding: 0 20px 40px 20px; justify-content: flex-end; }
-    .hero-title { font-size: 44px; letter-spacing: -1px; text-align: center; margin-bottom: 10px; }
-    .hero-meta-row { justify-content: center; gap: 10px; }
+    /* max-width:100% + a quebra de linha normal é o que faltava: sem isso, o <h1>
+       (elemento flex sem largura definida, dentro de um container column com
+       align-items:center) crescia pra caber o título inteiro numa linha só e
+       "vazava" pros dois lados da tela, cortado igualmente pelo overflow:hidden
+       do slider — exatamente o efeito de texto cortado que aparecia. Dando uma
+       largura de verdade pro container (.hero-content), o título passa a quebrar
+       linha dentro da tela, e tudo o que é centralizado (título, nota, badges)
+       passa a se centralizar de fato em relação à TELA, não a uma caixa invisível
+       maior do que ela. */
+    .hero-content { width: 100%; }
+    .hero-title { font-size: 44px; letter-spacing: -1px; text-align: center; margin-bottom: 10px; max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
+    .hero-meta-row { justify-content: center; gap: 10px; width: 100%; }
     .hero-meta-badge { background: transparent; border: none; font-size: 12px; color: #a1a1aa; padding: 0; }
     .slider-controls { bottom: 40px; }
 
     /* 4. LAYOUT GERAL (Espaço para o Bottom Nav) */
     #main-area { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
-    .home-content-wrapper { padding-top: 0; }
+    .home-content-wrapper { padding-top: 0; padding-bottom: calc(90px + env(safe-area-inset-bottom) + 20px); }
 
     /* 5. CABEÇALHOS DAS FILEIRAS (Com Setinha > ) */
     .home-row { margin-bottom: 30px; }
@@ -723,17 +736,54 @@ body {
        lugares abaixo pra nenhum conteúdo nascer escondido atrás dela. */
     :root { --mobile-topbar-h: calc(66px + env(safe-area-inset-top)); }
 
-    /* 7. FILTROS (Pills "All, Movies, Series...") */
-    #category-bar { position: relative; top: 0; background: transparent; padding: 0 20px; margin-bottom: 25px; margin-top: var(--mobile-topbar-h); }
-    #category-list { padding: 0; gap: 10px; -webkit-overflow-scrolling: touch; }
-    #category-list li { background: #1c1c1e; border-radius: 20px; font-size: 13px; font-weight: 500; border: 1px solid transparent; padding: 6px 16px; }
-    #category-list li.active { background: #333; color: white; border: 1px solid #555; }
+    /* 7. FILTROS — as pills ("Todos", "Continuar Assistindo", "Favoritos" + categorias
+       reais) não cabem todas numa linha horizontal no celular; era isso que cortava
+       "Favoritos" pra fora da tela. Agora é um botão único "Categorias": ao tocar, a
+       tela ganha um blur por cima e as opções aparecem empilhadas na vertical pra
+       escolher — o mesmo padrão de gaveta que já existia na TV ao Vivo. */
+    #category-bar { position: relative; top: 0; background: transparent; padding: 0 20px; margin-bottom: 15px; margin-top: var(--mobile-topbar-h); display: flex; }
+
+    .cat-drawer-toggle {
+        display: flex; align-items: center; gap: 8px; background: #1c1c1e; border: 1px solid rgba(255,255,255,0.08);
+        color: white; border-radius: 20px; padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer;
+        max-width: 100%; overflow: hidden;
+    }
+    .cat-drawer-toggle svg { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; }
+    .cat-drawer-toggle span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cat-drawer-toggle:active { background: #2a2a2c; }
+
+    /* Botão "X" só aparece com a gaveta aberta (ver JS: classe .drawer-open) */
+    .cat-drawer-close {
+        position: fixed; top: calc(14px + env(safe-area-inset-top)); right: 20px; z-index: 5100;
+        width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.12); color: white;
+        border: none; align-items: center; justify-content: center;
+    }
+    .cat-drawer-close svg { width: 18px; height: 18px; fill: currentColor; }
+    #category-bar.drawer-open .cat-drawer-close { display: flex; }
+
+    /* A gaveta: tela cheia, fundo desfocado (o catálogo continua visível, só borrado
+       atrás), categorias empilhadas na vertical — tocar numa já filtra e fecha. */
+    #category-list {
+        position: fixed; inset: 0; z-index: 5000; margin: 0;
+        flex-direction: column; gap: 12px;
+        padding: calc(70px + env(safe-area-inset-top)) 24px calc(40px + env(safe-area-inset-bottom));
+        background: rgba(10,10,10,0.75); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+        overflow-y: auto; -webkit-overflow-scrolling: touch;
+        opacity: 0; pointer-events: none; transform: translateY(12px);
+        transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    #category-bar.drawer-open #category-list { opacity: 1; pointer-events: auto; transform: translateY(0); }
+    #category-list li {
+        background: rgba(255,255,255,0.06); border-radius: 14px; font-size: 15px; font-weight: 600;
+        border: 1px solid rgba(255,255,255,0.08); padding: 16px 20px; text-align: center;
+    }
+    #category-list li.active { background: white; color: black; border-color: white; }
 
     /* 8. TV AO VIVO — no mobile não existe o layout "lista + miniplayer + EPG" lado a lado
        do desktop (não cabe numa tela pequena, e foi isso que causava a confusão de "canais
        no fundo, não entendi"). Aqui é só a lista de canais, limpa, tela toda pra ela; tocar
        num canal abre o player grande em tela cheia (ver criarLinhaCanal em ui.js). */
-    #grid-view, #media-grid { padding: 20px; padding-top: var(--mobile-topbar-h); }
+    #grid-view, #media-grid { padding: 20px; padding-top: var(--mobile-topbar-h); padding-bottom: calc(90px + env(safe-area-inset-bottom) + 20px); }
     .grid-header { padding-top: var(--mobile-topbar-h); }
     /* Quando JÁ existe a barra de categorias (#category-bar) acima, ela mesma já reservou
        o espaço da barra fixa (via margin-top acima) — então a grade não precisa reservar
@@ -755,7 +805,12 @@ body {
     .live-channels-header { padding-top: 0; }
 
     /* 9. DETALHES DE FILME/SÉRIE */
-    .md-content { padding: 20px 20px 30px 20px; padding-top: var(--mobile-topbar-h); }
+    /* O menu inferior fixo (#top-nav, ~85px + área segura do iPhone) continua na tela
+       aqui — .md-content só reservava 30px no final, então o botão "Assistir Agora"
+       (que fica perto do fim do conteúdo) nascia ATRÁS do menu, meio cortado. Reservando
+       a altura do menu no padding-bottom, o conteúdo passa a ter espaço de sobra pra
+       rolar até o botão ficar totalmente visível, acima do menu. */
+    .md-content { padding: 20px 20px calc(90px + env(safe-area-inset-bottom) + 30px) 20px; padding-top: var(--mobile-topbar-h); }
     .md-top-section { flex-direction: column; align-items: center; text-align: center; gap: 25px; }
     .btn-close { top: calc(var(--mobile-topbar-h) + 10px); right: 20px; width: 40px; height: 40px; z-index: 500;}
     .md-actions { justify-content: center; flex-wrap: wrap; width: 100%;}

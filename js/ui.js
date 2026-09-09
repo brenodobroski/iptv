@@ -349,6 +349,27 @@ function updateFavBadge(tipoAbaAtualizado) {
     }
 }
 
+// ================== GAVETA DE CATEGORIAS (FILMES/SÉRIES) NO MOBILE ==================
+// Mesmo padrão de gaveta que já existe na TV ao Vivo: abre/fecha em sincronia com o
+// blur de fundo (aqui, o próprio #category-list já nasce com backdrop-filter, então
+// só precisamos alternar a classe que o mostra/escomde — ver #category-bar.drawer-open
+// no CSS mobile).
+function definirGavetaCategorias(aberta) {
+    const bar = document.getElementById('category-bar');
+    if (!bar) return;
+    bar.classList.toggle('drawer-open', aberta);
+}
+window.definirGavetaCategorias = definirGavetaCategorias;
+
+const btnToggleCatDrawer = document.getElementById('btn-toggle-cat-drawer');
+if (btnToggleCatDrawer) {
+    btnToggleCatDrawer.addEventListener('click', () => definirGavetaCategorias(true));
+}
+const btnCloseCatDrawer = document.getElementById('btn-close-cat-drawer');
+if (btnCloseCatDrawer) {
+    btnCloseCatDrawer.addEventListener('click', () => definirGavetaCategorias(false));
+}
+
 function renderizarCategoriasLista(categorias) {
     const listUI = document.getElementById('category-list');
     listUI.innerHTML = '';
@@ -386,6 +407,13 @@ function renderizarCategoriasLista(categorias) {
             document.getElementById('search-box').value = ''; 
             document.getElementById('grid-header').style.display = 'none';
             switchView('grid-view');
+
+            // No mobile, escolher uma categoria na gaveta já fecha ela — não faz
+            // sentido no desktop (não existe gaveta lá), mas alternar a classe
+            // sem a gaveta aberta não tem efeito nenhum, então é seguro chamar sempre.
+            definirGavetaCategorias(false);
+            const catDrawerLabel = document.getElementById('cat-drawer-label');
+            if (catDrawerLabel) catDrawerLabel.textContent = li.textContent.trim();
             
             if (id === 'todos') { currentCatId = 'todos'; renderizarGrade(db[abaAtiva], abaAtiva, false); }
             else if (id === 'history') { currentCatId = 'history'; renderizarGrade(historicoDaAba.sort((a, b) => b.timestamp - a.timestamp), abaAtiva, false, true); } 
