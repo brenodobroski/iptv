@@ -1,5 +1,15 @@
-if ('serviceWorker' in navigator) { 
-    navigator.serviceWorker.register('./sw.js'); 
+// O Service Worker antigo (sw.js) estava interceptando TODA requisição da página — inclusive
+// as imagens do TMDB e as chamadas de catálogo — e quebrando algumas delas (erros
+// "net::ERR_FAILED" nas imagens, filmes/séries não carregando). Ele não fazia cache nem
+// trazia nenhum benefício real, só repassava tudo sem necessidade. Em vez de registrar um
+// novo, agora ativamente REMOVEMOS qualquer Service Worker que ainda esteja instalado no
+// navegador de quem já visitou o site antes — sem isso, a versão antiga continuaria
+// controlando a página (e quebrando as mesmas coisas) até a pessoa limpar os dados do site
+// manualmente, mesmo depois de você atualizar os arquivos na Vercel.
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(registros => {
+        registros.forEach(registro => registro.unregister());
+    });
 }
 
 // Variáveis Globais de Estado
