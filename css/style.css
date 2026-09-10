@@ -833,3 +833,54 @@ body {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 }
+
+/* ================== NAVEGAÇÃO POR CONTROLE REMOTO (TV) ================== */
+/* O app inteiro só tinha estilo de :hover — sem isso, quem navega com D-pad
+   (ver js/tv-nav.js) não teria NENHUM jeito de ver onde o foco está. Cada regra
+   abaixo espelha o :hover já existente do mesmo elemento, pra manter a
+   identidade visual do app; a regra genérica no final cobre qualquer coisa
+   focável que a gente tenha esquecido de estilizar aqui em cima. */
+
+.nav-link:focus,
+.icon-btn:focus,
+.btn-login:focus,
+.login-input:focus,
+.login-input-no-bg:focus,
+.btn-play-main:focus,
+.btn-fav-main:focus,
+.btn-fav:focus,
+.btn-fav-live:focus,
+.btn-modal:focus,
+.season-btn:focus,
+.scroll-btn:focus,
+.cat-drawer-toggle:focus,
+#btn-fechar-player:focus,
+#btn-retry-player:focus,
+#btn-toggle-live-cats:focus,
+#btn-toggle-cat-drawer:focus,
+#btn-close-cat-drawer:focus,
+input:focus {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+}
+
+/* Cards de filme/série e o banner: mesmo destaque "levanta e brilha" do
+   :hover, só que com o contorno de foco no lugar da sombra genérica. */
+.media-card:focus { outline: none; transform: translateY(-8px) scale(1.03); z-index: 10; }
+.media-card:focus .img-container { box-shadow: 0 0 0 3px var(--accent), 0 20px 40px rgba(0,0,0,0.6); border-color: var(--accent); }
+.media-card:focus .card-title { color: white; }
+.hero-slide:focus { outline: 3px solid var(--accent); outline-offset: -3px; }
+
+/* Linhas/itens de lista: fundo destacado + borda interna, sem empurrar layout */
+.live-channel-row:focus,
+#category-list li:focus,
+#live-category-list li:focus,
+.episode-row-card:focus {
+    outline: none;
+    background: rgba(255,255,255,0.18);
+    box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* Rede de segurança: qualquer elemento focável sem regra específica acima
+   ainda ganha um contorno visível — nunca fica focado "invisível". */
+:focus { outline: 3px solid var(--accent); outline-offset: 2px; }
