@@ -41,7 +41,18 @@ function forcarFechamentoPlayer() {
         pararWatchdogTravamento();
         esconderBotaoProximoEpisodio();
     }
-    if (livePlayer) livePlayer.pause();
+    // Se a tela cheia foi aberta a partir do miniplayer da aba "Ao Vivo" (ver
+    // ui.js), ao voltar o normal é continuar vendo o mesmo canal ali, tocando
+    // — não voltar pra uma imagem parada. Nos outros casos (filme/série, ou
+    // troca pra outra aba), o comportamento de sempre é pausar o miniplayer.
+    if (livePlayer) {
+        if (window.expandiuDoMiniplayer) {
+            livePlayer.play().catch(() => {});
+        } else {
+            livePlayer.pause();
+        }
+    }
+    window.expandiuDoMiniplayer = false;
 }
 
 // Pequeno aviso não-intrusivo tipo "Retomando de 12:34"

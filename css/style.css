@@ -21,7 +21,7 @@
     
     --star-active: #ffd60a; 
     
-    --glass-blur: blur(24px);
+    --glass-blur: blur(12px);
 }
 
 * { 
@@ -62,7 +62,7 @@ body {
     flex-direction: column; align-items: center; justify-content: center; overflow: hidden;
 }
 #login-screen::before, #login-screen::after, .login-glow {
-    content: ''; position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.35; z-index: 0; pointer-events: none;
+    content: ''; position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.35; z-index: 0; pointer-events: none;
 }
 #login-screen::before { width: 50vw; height: 50vw; background: var(--accent); top: -20vw; left: -10vw; }
 #login-screen::after { width: 60vw; height: 60vw; background: var(--event-color); bottom: -30vw; right: -10vw; }
@@ -299,7 +299,7 @@ body {
        um botão para abrir — numa TV há espaço de sobra e isso poupa um clique
        a cada troca de canal/categoria. */
     position: relative; flex: 0 0 300px; width: 300px; height: 100%; left: 0; top: 0; bottom: auto;
-    background: rgba(15, 15, 15, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    background: rgba(15, 15, 15, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     border-right: 1px solid var(--border-glass); border-radius: 16px; z-index: 10; display: flex; flex-direction: column;
     padding: 20px; box-shadow: none;
 }
@@ -376,6 +376,19 @@ body {
     flex-shrink: 0; display: flex; align-items: center; justify-content: center;
 }
 #live-mini-video, #live-mini-video_html5_api, .video-js video { object-fit: contain !important; }
+/* Dica visual de que o miniplayer pode ser expandido para tela cheia — some
+   quando o mouse sai / o foco vai pra outro lugar, pra não ficar poluindo a
+   tela o tempo todo. */
+#miniplayer-container { position: relative; cursor: pointer; }
+#miniplayer-expand-hint {
+    position: absolute; top: 14px; right: 14px; z-index: 30; display: flex; align-items: center; gap: 6px;
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(6px); color: white; font-size: 13px; font-weight: 600;
+    padding: 8px 14px; border-radius: 20px; opacity: 0; transition: opacity 0.25s ease; pointer-events: none;
+}
+#miniplayer-expand-hint svg { width: 16px; height: 16px; fill: currentColor; }
+#miniplayer-container:hover #miniplayer-expand-hint,
+#miniplayer-container:focus #miniplayer-expand-hint { opacity: 1; }
+#miniplayer-container:focus { outline: 3px solid var(--accent); outline-offset: 3px; }
 
 #live-epg-container { flex: 1; overflow-y: auto; overflow-x: hidden; border-radius: 16px; display: flex; flex-direction: column; gap: 10px; padding: 5px; }
 .epg-row {
@@ -399,7 +412,7 @@ body {
     align-items: center; justify-content: center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
 }
 .modal-content { 
-    background: rgba(25, 25, 25, 0.7); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+    background: rgba(25, 25, 25, 0.7); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     border-radius: 24px; padding: 35px; width: 90%; max-width: 350px; border: 1px solid var(--border-glass); 
     text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.5);
 }
@@ -419,7 +432,7 @@ body {
 
 /* ================== DETAIL VIEW (FILMES/SÉRIES) ================== */
 #media-detail { z-index: 100; padding: 0; background: var(--bg-base); }
-.md-bg-blur { position: absolute; inset: 0; height: 100vh; background-size: cover; background-position: top center; opacity: 0.4; mask-image: linear-gradient(to bottom, black 0%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%); filter: blur(20px); transition: background-image 0.5s ease; }
+.md-bg-blur { position: absolute; inset: 0; height: 100vh; background-size: cover; background-position: top center; opacity: 0.4; mask-image: linear-gradient(to bottom, black 0%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%); filter: blur(10px); transition: background-image 0.5s ease; }
 .md-content { position: relative; z-index: 2; padding: 120px 60px 60px 60px; min-height: 100%; display: flex; flex-direction: column; }
 
 .btn-close { 
@@ -591,7 +604,7 @@ body {
 }
 #btn-fechar-player:hover { background: white; color: black; transform: scale(1.05);}
 
-#global-loader { position: absolute; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(20px); z-index: 9000; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); }
+#global-loader { position: absolute; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 9000; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); }
 .spinner-large { width: 60px; height: 60px; border: 5px solid rgba(255,255,255,0.1); border-left-color: var(--accent); border-radius: 50%; animation: spin 1s cubic-bezier(0.5, 0, 0.5, 1) infinite; margin-bottom: 25px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -631,7 +644,7 @@ body {
     /* 2. MENU INFERIOR (BOTTOM NAV BAR) — agora só com as abas (Início/Ao Vivo/Filmes/Séries) */
     #top-nav { 
         top: auto; bottom: 0; height: 85px; padding: 10px 20px 25px 20px; 
-        background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
         border-top: 1px solid rgba(255,255,255,0.05); border-bottom: none;
         flex-direction: row; justify-content: center; align-items: center;
         /* área segura do "home indicator" do iPhone — sem isso, os ícones
@@ -675,7 +688,7 @@ body {
        180px espremido dentro da barra de ícones do topo. */
     .search-wrapper.active {
         position: fixed; inset: 0; z-index: 6000; width: 100%; height: 100%;
-        background: rgba(10,10,10,0.98); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        background: rgba(10,10,10,0.98); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
         border-radius: 0; border: none; padding: calc(60px + env(safe-area-inset-top)) 20px 20px 20px;
         align-items: flex-start;
     }
@@ -778,7 +791,7 @@ body {
         position: fixed; inset: 0; z-index: 5000; margin: 0;
         flex-direction: column; gap: 12px;
         padding: calc(70px + env(safe-area-inset-top)) 24px calc(40px + env(safe-area-inset-bottom));
-        background: rgba(10,10,10,0.75); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+        background: rgba(10,10,10,0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
         overflow-y: auto; -webkit-overflow-scrolling: touch;
         opacity: 0; pointer-events: none; transform: translateY(12px);
         transition: opacity 0.25s ease, transform 0.25s ease;

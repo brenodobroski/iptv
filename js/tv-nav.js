@@ -247,7 +247,12 @@
         var playerAberto = document.getElementById('player-wrapper').style.display === 'flex';
 
         if (MAPA_DIRECOES[e.key]) {
-            if (emCampoDeTexto) return; // deixa o cursor de texto andar dentro do campo
+            // Num campo de texto, só Esquerda/Direita devem mover o cursor dentro
+            // do texto — Cima/Baixo não fazem nada num campo de uma linha só, então
+            // continuam livres para tirar o foco de lá. Antes o "return" cobria
+            // as 4 direções, e quem entrava no campo de busca ficava "trancado"
+            // sem conseguir descer pra lista de canais/categorias com o controle.
+            if (emCampoDeTexto && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;
             // Com o player aberto, Esquerda/Direita já avançam/voltam 10s (ver
             // player.js) — não competir com esse atalho já existente.
             if (playerAberto && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;

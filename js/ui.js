@@ -512,7 +512,7 @@ function gerarHTMLCard(item, tipoAba, isEventLayout, isHistoryView) {
             <button class="btn-fav ${isFav ? 'is-fav' : ''}" onclick="toggleFav(event, ${id}, '${tipoAba}')">
                 <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
             </button>
-            <img src="${srcFinal}" data-original="${logo}" onerror="marcarImagemQuebrada(this, '${fallbackImg}')" loading="lazy">
+            <img src="${srcFinal}" data-original="${logo}" onerror="marcarImagemQuebrada(this, '${fallbackImg}')">
             ${progressBar}
         </div>
         <div class="card-info">
@@ -521,6 +521,20 @@ function gerarHTMLCard(item, tipoAba, isEventLayout, isHistoryView) {
     `;
     return card;
 }
+
+// Clicar (ou apertar OK, com o miniplayer focado pelo controle) no player
+// da coluna "Ao Vivo" expande o mesmo canal em tela cheia — o botão de
+// voltar (#btn-fechar-player) já existe no player grande e devolve pra essa
+// tela normalmente.
+document.getElementById('miniplayer-container').addEventListener('click', (e) => {
+    // Clique nos próprios controles do video.js (play/pause/volume/etc) não deve
+    // abrir a tela cheia — só clicar na área do vídeo em si (ou apertar OK nele).
+    if (e.target.closest('.vjs-control-bar')) return;
+    if (!window.canalAoVivoAtual) return;
+    window.expandiuDoMiniplayer = true;
+    livePlayer.pause();
+    abrirPlayer(window.canalAoVivoAtual.url, window.canalAoVivoAtual);
+});
 
 function criarLinhaCanal(item) {
     const id = item.stream_id || item.id;
@@ -535,7 +549,7 @@ function criarLinhaCanal(item) {
     const epgInicial = item.epg_title ? window.decodeBase64EPG(item.epg_title) : 'Carregando...';
 
     row.innerHTML = `
-        <img src="${srcFinal}" onerror="marcarImagemQuebrada(this, '${getFallbackSvg('TV')}')" loading="lazy">
+        <img src="${srcFinal}" onerror="marcarImagemQuebrada(this, '${getFallbackSvg('TV')}')">
         <div class="live-channel-info">
             <div class="live-channel-name">${item.name}</div>
             <div class="live-channel-prog" id="prog-mini-${id}">${epgInicial}</div>
@@ -565,6 +579,10 @@ function criarLinhaCanal(item) {
             abrirPlayer(urlFinalLive, { id, name: item.name, aba: 'live' });
             return;
         }
+
+        // Guarda o canal atual pra poder reabrir a mesma URL em tela cheia
+        // quando o usuário clicar/apertar OK em cima do miniplayer.
+        window.canalAoVivoAtual = { id, name: item.name, url: urlFinalLive, aba: 'live' };
 
         livePlayer.src({ src: urlFinalLive, type: 'application/x-mpegURL' });
         // Reforça o recálculo de tamanho também aqui: caso o clique seja o
@@ -660,7 +678,11 @@ function renderizarGrade(dados, tipoAba, isEventLayout = false, isHistoryView = 
         renderizarLote();
     } else {
         liveContainer.style.display = 'none';
-        gridUI.style.display = 'grid';
+        // IMPORTANTE: tem que ser 'flex' aqui, não 'grid' — o CSS de #media-grid
+        // agora usa display:flex (ver style.css). Um style.display setado via
+        // JS sempre GANHA da regra do CSS externo, então deixar "grid" aqui
+        // anulava a correção do CSS e os cards continuavam empilhados.
+        gridUI.style.display = 'flex';
         if (dados.length === 0) {
             const vazio = document.createElement('div');
             vazio.className = 'grid-empty-state';
@@ -743,7 +765,7 @@ async function abrirDetalhesMedia(id, tipo) {
                         
                         epItem.innerHTML = `
                             <div class="ep-row-img">
-                                <img src="${ep.info.movie_image || imgPoster}" loading="lazy" onerror="this.src='${getFallbackSvg('Episódio')}';">
+                                <img src="${ep.info.movie_image || imgPoster}" onerror="this.src='${getFallbackSvg('Episódio')}';">
                                 <div class="ep-play-overlay">
                                     <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                                 </div>
