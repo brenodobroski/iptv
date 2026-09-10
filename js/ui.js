@@ -567,6 +567,10 @@ function criarLinhaCanal(item) {
         }
 
         livePlayer.src({ src: urlFinalLive, type: 'application/x-mpegURL' });
+        // Reforça o recálculo de tamanho também aqui: caso o clique seja o
+        // primeiro depois de abrir a aba "Ao Vivo", garante que o player já
+        // tenha a medida certa antes de começar a tocar.
+        livePlayer.trigger('resize');
         livePlayer.play().catch(e => {
             if (e && e.name === 'AbortError') return;
             console.error(e);
@@ -591,6 +595,16 @@ function renderizarGrade(dados, tipoAba, isEventLayout = false, isHistoryView = 
     if (tipoAba === 'live') {
         gridUI.style.display = 'none';
         liveContainer.style.display = 'flex';
+        // O video.js do miniplayer é criado ainda no carregamento da página,
+        // com o container escondido (display:none). Alguns navegadores de TV
+        // guardam o tamanho "zero" calculado nesse momento e nunca recalculam
+        // por conta própria quando o container aparece depois — o vídeo fica
+        // then tecnicamente tocando, só que invisível (0x0). Forçar um
+        // 'resize' aqui faz o video.js medir o container de novo, agora que
+        // ele já está visível.
+        if (typeof livePlayer !== 'undefined' && livePlayer) {
+            setTimeout(() => livePlayer.trigger('resize'), 50);
+        }
         if(dados.length === 0) { liveListUI.innerHTML = '<div style="padding: 20px; color: var(--text-muted);">Nenhum canal encontrado.</div>'; return; }
         
         // OBSERVADOR INTELIGENTE: Só carrega o EPG dos canais que estão aparecendo na tela

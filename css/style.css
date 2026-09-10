@@ -265,7 +265,10 @@ body {
 
 /* ================== GRID E LISTAS ================== */
 #media-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; row-gap: 40px;
+    /* Usamos flexbox (com wrap) em vez de CSS Grid: alguns navegadores de Smart TV
+       mais antigos (webOS/Tizen) não suportam Grid corretamente, e os cards ficavam
+       todos empilhados verticalmente, um abaixo do outro, em vez de lado a lado. */
+    display: flex; flex-wrap: wrap; gap: 20px 20px;
     /* Espaço padrão: só o menu principal fixo (90px) fica por cima. */
     padding: 110px 60px 40px 60px;
 }
@@ -291,12 +294,20 @@ body {
 }
 
 #live-category-sidebar {
-    position: absolute; top: 90px; bottom: 0; left: -350px; width: 320px;
+    /* Em telas grandes (desktop/TV) a gaveta fica sempre aberta e ocupa espaço
+       fixo dentro do layout, em vez de ser um painel escondido que precisa de
+       um botão para abrir — numa TV há espaço de sobra e isso poupa um clique
+       a cada troca de canal/categoria. */
+    position: relative; flex: 0 0 300px; width: 300px; height: 100%; left: 0; top: 0; bottom: auto;
     background: rgba(15, 15, 15, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    border-right: 1px solid var(--border-glass); z-index: 1000; display: flex; flex-direction: column;
-    padding: 30px 20px; transition: left 0.4s cubic-bezier(0.25, 1, 0.5, 1); box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+    border-right: 1px solid var(--border-glass); border-radius: 16px; z-index: 10; display: flex; flex-direction: column;
+    padding: 20px; box-shadow: none;
 }
 #live-category-sidebar.open { left: 0; }
+/* Painel sempre visível: nem o fundo escurecido nem o botão de abrir fazem
+   sentido aqui (só existem para o padrão de "gaveta" usado no mobile). */
+#live-sidebar-backdrop { display: none; }
+#btn-toggle-live-cats { display: none; }
 
 /* Fundo escurecido atrás da gaveta de categorias — só fica clicável/visível
    quando ela está aberta (padrão comum em apps mobile pra indicar "modal"). */
@@ -792,13 +803,24 @@ body {
     #grid-view.tem-category-bar .grid-header { padding-top: 20px; }
     /* Grade de pôsteres em 3 colunas fixas (padrão de app de streaming) em vez
        do auto-fill de 150px, que sobrava espaço estranho em telas estreitas. */
-    #media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; row-gap: 24px; }
+    #media-grid {
+        display: flex; flex-wrap: wrap; gap: 10px 10px;
+    }
+    #media-grid > .media-card {
+        /* 3 colunas fixas: largura = 1/3 da linha menos os gaps entre elas */
+        min-width: calc((100% - 20px) / 3); max-width: calc((100% - 20px) / 3);
+    }
     /* Aviso de "categoria vazia" (ver renderizarGrade) — evita a tela ficar em branco
        sem explicação nenhuma, que é o que parecia estar "quebrado". */
     .grid-empty-state { padding: 60px 20px; text-align: center; color: var(--text-muted); font-size: 14px; grid-column: 1 / -1; }
 
     #live-layout-container { flex-direction: column; padding: 0; height: auto; overflow: visible; gap: 0; }
-    #live-category-sidebar { left: -100%; width: 80%; top: 0; z-index: 3000; padding-top: calc(30px + env(safe-area-inset-top)); }
+    /* No mobile o painel volta a ser uma gaveta sobreposta (position: fixed),
+       diferente do desktop/TV onde ele fica sempre visível e ocupa espaço fixo. */
+    #live-category-sidebar { position: fixed; flex: none; left: -100%; width: 80%; top: 0; bottom: 0; z-index: 3000; padding-top: calc(30px + env(safe-area-inset-top)); border-radius: 0; }
+    #live-category-sidebar.open { left: 0; }
+    #live-sidebar-backdrop { display: block; }
+    #btn-toggle-live-cats { display: flex; }
     #live-player-column, #live-epg-container, #miniplayer-container { display: none; }
     #live-channels-column { flex: none; height: auto; overflow: visible; margin-bottom: 0; padding: 20px; padding-top: var(--mobile-topbar-h); }
     #live-channels-list { overflow: visible; -webkit-overflow-scrolling: touch; }
@@ -884,3 +906,67 @@ input:focus {
 /* Rede de segurança: qualquer elemento focável sem regra específica acima
    ainda ganha um contorno visível — nunca fica focado "invisível". */
 :focus { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+
+/* =========================================================
+   FALLBACK DE COMPATIBILIDADE — SMART TVs ANTIGAS
+   =========================================================
+   Várias TVs (principalmente webOS e Tizen de gerações mais antigas) rodam
+   um navegador Chromium/WebKit desatualizado que NÃO entende a propriedade
+   `gap` dentro de flexbox (isso só chegou no Chromium por volta de 2020) nem
+   `aspect-ratio` (chegou depois ainda). O app inteiro usa `gap` para todo o
+   espaçamento entre elementos — quando o navegador não reconhece a
+   propriedade, ele simplesmente a ignora e os itens ficam colados um no
+   outro, sem espaço nenhum entre eles (é isso que estava acontecendo).
+   
+   A regra @supports abaixo só é aplicada quando o navegador NÃO suporta
+   `gap` — em navegadores atuais (que já suportam) ela não faz nada, então
+   não corre o risco de "somar" e dobrar o espaçamento. Ela recria o mesmo
+   espaçamento usando margin, que é suportado por absolutamente qualquer
+   navegador, mesmo os mais antigos. */
+@supports not (gap: 1px) {
+    .login-logo > * + * { margin-left: 8px; }
+    .login-inputs > * + * { margin-top: 12px; }
+    .nav-left > * + *, .nav-right > * + * { margin-left: 30px; }
+    .nav-center > * + * { margin-left: 8px; }
+    #category-list > * + * { margin-left: 15px; }
+    .hero-meta-row > * + * { margin-left: 10px; }
+    .hero-meta-badge > * + * { margin-left: 6px; }
+    .slider-controls > * + * { margin-left: 8px; }
+    .row-scroller > * + * { margin-left: 18px; }
+    .card-info > * + * { margin-top: 4px; }
+    #media-grid > * { margin: 0 20px 20px 0; }
+    #live-layout-container > * + * { margin-left: 30px; }
+    #live-category-list > * + * { margin-top: 5px; }
+    .live-channels-header > * + * { margin-left: 15px; }
+    #live-channels-list > * + * { margin-top: 8px; }
+    .live-channel-info > * + * { margin-top: 4px; }
+    #live-player-column > * + * { margin-top: 20px; }
+    #live-epg-container > * + * { margin-top: 10px; }
+    .btn-modal > * + * { margin-left: 8px; }
+    .md-top-section > * + * { margin-left: 60px; }
+    .md-meta > * + * { margin-left: 15px; }
+    .md-actions > * + * { margin-left: 15px; }
+    .btn-play-main > * + * { margin-left: 10px; }
+    .series-layout > * + * { margin-left: 40px; }
+    .seasons-sidebar > * + * { margin-top: 10px; }
+    .episodes-list > * + * { margin-top: 15px; }
+    .btn-proximo-episodio > * + * { margin-left: 10px; }
+    #btn-fechar-player > * + * { margin-left: 8px; }
+}
+
+/* `aspect-ratio` também não existe em navegadores de TV mais antigos — sem
+   ela, os containers de imagem/vídeo abaixo colapsam para altura zero (ficam
+   invisíveis) porque não têm nenhuma outra forma de saber qual altura usar.
+   O truque abaixo (padding-top em %) é a técnica clássica, bem mais antiga,
+   que produz a mesma proporção e funciona em qualquer navegador. */
+@supports not (aspect-ratio: 1 / 1) {
+    .img-container { aspect-ratio: unset; height: 0; padding-top: 150%; /* 2/3 */ position: relative; }
+    .media-card.is-16x9 .img-container { padding-top: 56.25%; /* 16/9 */ }
+    .img-container img { position: absolute; inset: 0; }
+    #miniplayer-container { aspect-ratio: unset; height: 0; padding-top: 56.25%; position: relative; }
+    #miniplayer-container video { position: absolute; inset: 0; }
+    .ep-row-img { aspect-ratio: unset; height: 0; padding-top: 56.25%; position: relative; }
+    .ep-row-img img { position: absolute; inset: 0; }
+    .md-poster { aspect-ratio: unset; height: 450px; }
+}
